@@ -4,6 +4,7 @@ import { CATEGORIES, CATEGORY_KEYS, ITINERARY, fmtDate } from './constants'
 import MapView from './components/MapView'
 import Agenda from './components/Agenda'
 import RouteView from './components/RouteView'
+import Flights from './components/Flights'
 import PlaceModal from './components/PlaceModal'
 import PlaceForm from './components/PlaceForm'
 
@@ -12,7 +13,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [view, setView] = useState('mapa') // mapa | agenda | ruta
+  const [view, setView] = useState('mapa') // mapa | agenda | ruta | vuelos
   const [selected, setSelected] = useState(null)
   const [editing, setEditing] = useState(null)   // null | 'new' | place
 
@@ -83,6 +84,15 @@ export default function App() {
       setSelected(null)
     } catch (e) {
       alert('Error al eliminar: ' + e.message)
+    }
+  }
+
+  // Marcar/desmarcar visitado (sincroniza en tiempo real)
+  const toggleVisited = async (place) => {
+    try {
+      await db.update(place.id, { visited: !place.visited })
+    } catch (e) {
+      alert('Error al marcar visitado: ' + e.message)
     }
   }
 
@@ -176,6 +186,8 @@ export default function App() {
           />
         ) : view === 'agenda' ? (
           <Agenda places={filtered} onOpen={(p) => setSelected(p)} />
+        ) : view === 'vuelos' ? (
+          <Flights whoAmI="Matías" />
         ) : (
           <RouteView places={places} onOpenCity={focusCity} />
         )}
@@ -186,6 +198,7 @@ export default function App() {
         {[
           ['mapa', '🗺️', 'Mapa'],
           ['agenda', '📅', 'Agenda'],
+          ['vuelos', '✈️', 'Vuelos'],
           ['ruta', '🧭', 'Ruta'],
         ].map(([key, icon, label]) => (
           <button
@@ -208,6 +221,7 @@ export default function App() {
           onClose={() => setSelected(null)}
           onEdit={() => setEditing(places.find((p) => p.id === selected.id) || selected)}
           onDelete={() => deletePlace(selected.id)}
+          onToggleVisited={toggleVisited}
         />
       )}
       {editing && (

@@ -287,3 +287,56 @@ export function onPendingChange(cb) {
   cb(queue.length)
   return () => pendingHandlers.delete(cb)
 }
+
+// ─────────────────────────────────────────────────────────────
+// Tabla flights: horas editables de los tramos del itinerario
+// (mismo patrón: upsert con realtime; sin cola offline porque los
+// tramos son fijos y siempre existen en la base)
+// ─────────────────────────────────────────────────────────────
+let demoFlights = {}
+const flightHandlers = new Set()
+
+export const flightsDb = {
+  async list() {
+    if (!configured) return { ...demoFlights }
+    const { data, error } = await supabase.from('flights').select('*')
+    if (error) throw error
+    return Object.fromEntries((data ?? []).map(f => [f.id, f]))
+  },
+
+  async save(leg) {
+    if (!configured) {
+      demoFlights = { ...demoFlights, [leg.id]: { ...demoFlights[leg.id], ...leg } }
+      flightHandlers.forEach(h => h(leg))
+      return demoFlights[leg.id]
+    }
+    const { data, error } = await supabase
+      .from('flights')
+      .upsert({ ...leg, updated_at: new Date().toISOString() })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  // Suscripción realtime: llega el tramo actualizado desde otro dispositivo
+  subscribe(onUpdate) {
+    if (!configured) {
+      const handler = (leg) => onUpdate(leg)
+      flightHandlers.add(handler)
+      return () => flightHandlers.delete(handler)
+    }
+    const channel = supabase
+      .channel(`flights-changes-${crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'flights' },
+        payload => {
+          const row = payload.new
+          if (row) onUpdate(row)
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  },
+}

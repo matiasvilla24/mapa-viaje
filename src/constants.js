@@ -52,6 +52,21 @@ export const ROUTE_POINTS = [
   { city: 'Medellín',   date: '10 ene', lat: 6.2442,  lng: -75.5812 },
 ]
 
+// Tramos de vuelos/traslados editables (claves estables = ids en la tabla flights)
+export const FLIGHT_LEGS = [
+  { id: 'mde-mad-25dic', label: '✈️ Medellín → Madrid', date: '2026-12-25', icon: '✈️' },
+  { id: 'mad-26dic',     label: '🛬 Llegada a Madrid', date: '2026-12-26', icon: '🛬' },
+  { id: 'mad-par-27dic', label: '✈️ Madrid → París', date: '2026-12-27', icon: '✈️' },
+  { id: 'par-fin-31dic', label: '🎆 Fin de año en París', date: '2026-12-31', icon: '🎆' },
+  { id: 'par-mxp-01ene', label: '✈️ París → Milán', date: '2027-01-01', icon: '✈️' },
+  { id: 'mxp-vce-02ene', label: '🚆 Milán → Verona → Venecia', date: '2027-01-02', icon: '🚆' },
+  { id: 'vce-flo-03ene', label: '🚆 Venecia → Florencia', date: '2027-01-03', icon: '🚆' },
+  { id: 'flo-roma-04ene', label: '🚆 Florencia → Roma', date: '2027-01-04', icon: '🚆' },
+  { id: 'rom-nap-07ene', label: '🚆 Roma → Pompeya (ida y vuelta)', date: '2027-01-07', icon: '🚆' },
+  { id: 'rom-mad-09ene', label: '✈️ Roma → Madrid', date: '2027-01-09', icon: '✈️' },
+  { id: 'mad-mde-10ene', label: '✈️ Madrid → Medellín', date: '2027-01-10', icon: '✈️' },
+]
+
 export function fmtDate(iso) {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-').map(Number)

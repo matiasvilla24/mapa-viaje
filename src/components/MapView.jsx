@@ -9,7 +9,7 @@ const EMOJI = {
 
 function makeIcon(place, dimmed) {
   const color = CATEGORIES[place.category]?.color || CATEGORIES.otro.color
-  const emoji = EMOJI[place.category] || EMOJI.otro
+  const emoji = place.visited ? '✅' : (EMOJI[place.category] || EMOJI.otro)
   const size = place.must_see ? 38 : 32
   return L.divIcon({
     className: '',
@@ -20,7 +20,7 @@ function makeIcon(place, dimmed) {
       border:2.5px solid white;
       box-shadow:0 2px 6px rgba(0,0,0,.4), 0 0 0 ${place.must_see ? 3 : 0}px ${color}55;
       display:flex;align-items:center;justify-content:center;
-      opacity:${dimmed ? 0.25 : 1};
+      opacity:${dimmed ? 0.25 : (place.visited ? 0.55 : 1)};
     ">
       <span style="transform:rotate(45deg);font-size:${place.must_see ? 17 : 15}px;line-height:1">${emoji}</span>
     </div>`,

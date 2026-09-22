@@ -38,9 +38,10 @@ export default function Agenda({ places, onOpen }) {
       />
       <span className="flex-1 min-w-0">
         <span className="flex items-center gap-1.5">
-          <span className="font-semibold text-slate-800 text-[15px] leading-snug">{p.name}</span>
+          <span className={`font-semibold text-[15px] leading-snug ${p.visited ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{p.name}</span>
           {p.must_see && <span title="Imperdible">⭐</span>}
           {p.reservation_required && <span title="Requiere reserva" className="text-[11px]">🎟️</span>}
+          {p.visited && <span title="Visitado" className="text-[11px]">✅</span>}
         </span>
         <span className="block text-xs text-slate-500 truncate">
           {p.city}

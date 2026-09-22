@@ -1,6 +1,6 @@
 import { CATEGORIES, fmtDate } from '../constants'
 
-export default function PlaceModal({ place, onClose, onEdit, onDelete }) {
+export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleVisited }) {
   const c = CATEGORIES[place.category] || CATEGORIES.otro
   return (
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
@@ -17,7 +17,7 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete }) {
             {c.label[0]}
           </span>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-slate-900 leading-tight">
+            <h2 className={`text-lg font-bold leading-tight ${place.visited ? 'text-slate-400 line-through decoration-2' : 'text-slate-900'}`}>
               {place.name} {place.must_see && <span title="Imperdible">⭐</span>}
             </h2>
             <p className="text-xs text-slate-500">
@@ -31,6 +31,25 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete }) {
 
         {/* Contenido */}
         <div className="overflow-y-auto thin-scroll p-4 space-y-3.5 text-sm">
+          {/* Checkbox visitado */}
+          <button
+            onClick={() => onToggleVisited?.(place)}
+            className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 border transition-colors ${
+              place.visited
+                ? 'bg-emerald-500 border-emerald-600 text-white'
+                : 'bg-white border-slate-300 text-slate-700 hover:border-emerald-400 hover:bg-emerald-50'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-md flex items-center justify-center text-sm font-black flex-shrink-0 ${
+              place.visited ? 'bg-white text-emerald-600' : 'border-2 border-slate-300 bg-white'
+            }`}>
+              {place.visited ? '✓' : ''}
+            </span>
+            <span className="font-bold text-[15px]">
+              {place.visited ? '¡Visitado! 🎉' : 'Marcar como visitado'}
+            </span>
+          </button>
+
           {place.description && (
             <section>
               <h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1">Descripción</h3>

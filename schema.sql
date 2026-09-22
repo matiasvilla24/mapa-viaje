@@ -32,6 +32,7 @@ create table public.places (
   price text,
   assigned_date date,
   must_see boolean not null default false,
+  visited boolean not null default false,
   notes text,
   added_by text,
   created_at timestamptz not null default now()
@@ -57,6 +58,27 @@ create policy "app_access"
 
 -- 4) Realtime: publicar cambios de la tabla
 alter publication supabase_realtime add table public.places;
+
+-- 4b) Tabla flights: horas editables de los tramos del itinerario
+create table if not exists public.flights (
+  id text primary key,               -- clave estable del tramo (ej. 'mad-par-27dic')
+  label text not null,               -- título del tramo
+  departure_time text,               -- hora de salida (texto libre, ej. '15:30')
+  arrival_time text,                 -- hora de llegada
+  flight_number text,                -- número de vuelo (ej. AV254)
+  notes text,                        -- notas libres
+  updated_by text,                   -- quién editó por última vez
+  updated_at timestamp with time zone default now()
+);
+alter table public.flights enable row level security;
+drop policy if exists "flights_access" on public.flights;
+create policy "flights_access"
+  on public.flights
+  for all
+  to anon, authenticated
+  using (true)
+  with check (true);
+alter publication supabase_realtime add table public.flights;
 
 -- ============================================================
 -- 5) DATOS PRECARGADOS (los mismos del archivo src/seed.js)

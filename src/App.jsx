@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { db, configured, onPendingChange } from './supabaseClient'
+import { db, contributionsDb, configured, onPendingChange } from './supabaseClient'
+import QuickAdd from './components/QuickAdd'
 import { CATEGORIES, CATEGORY_KEYS, ITINERARY, fmtDate } from './constants'
 import MapView from './components/MapView'
 import Agenda from './components/Agenda'
@@ -16,6 +17,7 @@ export default function App() {
   const [view, setView] = useState('mapa') // mapa | agenda | ruta | vuelos
   const [selected, setSelected] = useState(null)
   const [editing, setEditing] = useState(null)   // null | 'new' | place
+  const [quickAdd, setQuickAdd] = useState(false)
 
   // Operaciones pendientes de sincronizar (hechas sin conexión)
   const [pending, setPending] = useState(0)
@@ -45,6 +47,7 @@ export default function App() {
   // Cargar datos y suscribirse a cambios en tiempo real
   useEffect(() => {
     let unsub = () => {}
+    let unsubContribs = () => {}
     ;(async () => {
       try {
         const data = await db.list()
@@ -59,8 +62,15 @@ export default function App() {
         onUpdate: (row) => setPlaces((cur) => cur.map((p) => (p.id === row.id ? row : p))),
         onDelete: (id) => setPlaces((cur) => cur.filter((p) => p.id !== id)),
       })
+      // Contribuciones (imágenes/enlaces/contactos/notas) en tiempo real:
+      // se reparten al estado del modal si está abierto para ese lugar.
+      unsubContribs = contributionsDb.subscribe({
+        onInsert: (row) => {
+          setSelected((sel) => (sel && sel.id === row.place_id ? { ...sel, __contribInsert: row } : sel))
+        },
+      })
     })()
-    return () => unsub()
+    return () => { unsub(); unsubContribs() }
   }, [])
 
   // ── CRUD ──
@@ -127,6 +137,13 @@ export default function App() {
             )}
           </p>
         </div>
+        <button
+          onClick={() => { setQuickAdd(true); cancelPick() }}
+          className="flex-shrink-0 bg-violet-500 hover:bg-violet-400 active:bg-violet-600 text-white font-bold text-sm px-3 py-2 rounded-xl transition-colors shadow"
+          title="Agregar desde un link, texto o captura (con IA)"
+        >
+          ✨
+        </button>
         <button
           onClick={() => { setEditing('new'); cancelPick() }}
           className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-900 font-bold text-sm px-3.5 py-2 rounded-xl transition-colors shadow"
@@ -215,7 +232,13 @@ export default function App() {
       </nav>
 
       {/* ── Modales ── */}
-      {selected && !editing && (
+      {quickAdd && (
+        <QuickAdd
+          onClose={() => setQuickAdd(false)}
+          onSaved={(row) => { setQuickAdd(false); setSelected(row) }}
+        />
+      )}
+      {selected && !editing && !quickAdd && (
         <PlaceModal
           place={places.find((p) => p.id === selected.id) || selected}
           onClose={() => setSelected(null)}

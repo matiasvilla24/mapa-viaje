@@ -80,6 +80,34 @@ create policy "flights_access"
   with check (true);
 alter publication supabase_realtime add table public.flights;
 
+-- 4c) Columna "Extraído de:" (Quick Add con IA)
+alter table public.places add column if not exists source_url text;
+
+-- 4d) Contribuciones de la familia: imágenes, enlaces, contactos y notas por lugar
+create table if not exists public.contributions (
+  id uuid primary key default gen_random_uuid(),
+  place_id uuid not null references public.places(id) on delete cascade,
+  kind text not null check (kind in ('imagen', 'enlace', 'contacto', 'nota')),
+  value text,
+  url text,
+  author text,
+  created_at timestamptz not null default now()
+);
+alter table public.contributions enable row level security;
+drop policy if exists "contributions_access" on public.contributions;
+create policy "contributions_access"
+  on public.contributions
+  for all
+  to anon, authenticated
+  using (true)
+  with check (true);
+alter publication supabase_realtime add table public.contributions;
+
+-- 4e) Bucket público de imágenes de referencia
+insert into storage.buckets (id, name, public)
+values ('place-images', 'place-images', true)
+on conflict (id) do nothing;
+
 -- ============================================================
 -- 5) DATOS PRECARGADOS (los mismos del archivo src/seed.js)
 --    insert solo si la tabla está vacía

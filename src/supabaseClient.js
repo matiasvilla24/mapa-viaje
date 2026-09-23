@@ -289,6 +289,82 @@ export function onPendingChange(cb) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Tabla contributions: imágenes, enlaces, contactos y notas por lugar
+// (realtime; sin cola offline — si falla, se avisa en la UI)
+// ─────────────────────────────────────────────────────────────
+let demoContribs = []
+const contribHandlers = new Set()
+
+export const contributionsDb = {
+  async list(placeId) {
+    if (!configured) return demoContribs.filter((c) => c.place_id === placeId).map((c) => ({ ...c }))
+    const { data, error } = await supabase
+      .from('contributions')
+      .select('*')
+      .eq('place_id', placeId)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async add(contrib) {
+    if (!configured) {
+      const row = { ...contrib, id: crypto.randomUUID(), created_at: new Date().toISOString() }
+      demoContribs = [...demoContribs, row]
+      contribHandlers.forEach((h) => h(row))
+      return row
+    }
+    const { data, error } = await supabase.from('contributions').insert(contrib).select().single()
+    if (error) throw error
+    return data
+  },
+
+  async remove(id) {
+    if (!configured) {
+      demoContribs = demoContribs.filter((c) => c.id !== id)
+      return
+    }
+    const { error } = await supabase.from('contributions').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // Subir una imagen al bucket 'place-images' y devolver su URL pública
+  async uploadImage(placeId, file) {
+    if (!configured) return null
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+    const path = `${placeId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`
+    const { error } = await supabase.storage.from('place-images').upload(path, file, {
+      contentType: file.type || 'image/jpeg',
+      upsert: false,
+    })
+    if (error) throw error
+    const { data } = supabase.storage.from('place-images').getPublicUrl(path)
+    return data.publicUrl
+  },
+
+  // Suscripción realtime: contribuciones nuevas/borradas de CUALQUIER lugar
+  subscribe({ onInsert, onDelete }) {
+    if (!configured) {
+      const handler = (row) => onInsert?.(row)
+      contribHandlers.add(handler)
+      return () => contribHandlers.delete(handler)
+    }
+    const channel = supabase
+      .channel(`contributions-changes-${crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contributions' },
+        (payload) => {
+          if (payload.eventType === 'INSERT' && payload.new) onInsert?.(payload.new)
+          if (payload.eventType === 'DELETE' && payload.old) onDelete?.(payload.old.id)
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  },
+}
+
+// ─────────────────────────────────────────────────────────────
 // Tabla flights: horas editables de los tramos del itinerario
 // (mismo patrón: upsert con realtime; sin cola offline porque los
 // tramos son fijos y siempre existen en la base)

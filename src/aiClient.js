@@ -10,22 +10,36 @@
 const KEY = import.meta.env.VITE_GEMINI_API_KEY
 export const aiConfigured = Boolean(KEY)
 
-const MODEL = 'gemini-2.5-flash'
+const MODEL = 'gemini-flash-latest'
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
 
-async function callGemini(contents, { system, useSearch = true } = {}) {
+async function callGemini(contents, { system, useSearch = true, retriesLeft = 1 } = {}) {
   if (!aiConfigured) throw new Error('IA no configurada: falta VITE_GEMINI_API_KEY')
   const body = { contents }
   if (system) body.systemInstruction = { parts: [{ text: system }] }
   if (useSearch) body.tools = [{ google_search: {} }]
 
-  const res = await fetch(ENDPOINT, {
+  const doFetch = () => fetch(ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY },
     body: JSON.stringify(body),
   })
+
+  // El plan gratuito tiene límites por minuto y picos de demanda:
+  // se reintenta solo una vez tras una pausa antes de rendirse.
+  let res = await doFetch()
+  if ((res.status === 429 || res.status === 503) && retriesLeft > 0) {
+    await new Promise((r) => setTimeout(r, 8000))
+    res = await doFetch()
+  }
   if (!res.ok) {
     const t = await res.text().catch(() => '')
+    if (res.status === 429) {
+      throw new Error('Se alcanzó el límite gratuito de la IA por ahora (se renueva cada minuto). Espera un momentito y vuelve a preguntar. 🙏')
+    }
+    if (res.status === 503) {
+      throw new Error('La IA está saturada ahora mismo. Prueba de nuevo en un minuto. 🙏')
+    }
     throw new Error(`Gemini respondió ${res.status}: ${t.slice(0, 180)}`)
   }
   const data = await res.json()
@@ -71,7 +85,14 @@ export async function askAboutPlace(place, question, history = []) {
     ...history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
     { role: 'user', parts: [{ text: `Contexto del lugar:\n${ctx}\n\nPregunta: ${question}` }] },
   ]
-  return callGemini(contents, { system, useSearch: true })
+  try {
+    return await callGemini(contents, { system, useSearch: true })
+  } catch (e) {
+    // Cuota de búsqueda agotada o modelo saturado: responder igual con
+    // conocimiento propio (sin citas en vivo) en vez de bloquear al usuario.
+    const r = await callGemini(contents, { system, useSearch: false, retriesLeft: 0 })
+    return { ...r, text: `⚠️ _Respuesta sin búsqueda web en vivo (límite temporal de Google alcanzado — puede estar desactualizada)._\n\n${r.text}` }
+  }
 }
 
 // ── Quick Add: extraer un lugar desde un link / texto / captura ──

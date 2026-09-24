@@ -131,7 +131,21 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
   }
   parts.push({ text: text || 'Extrae el lugar principal de esta captura/página.' })
 
-  const { text: raw, sources } = await callGemini([{ role: 'user', parts }], { system, useSearch: true })
+  const contents = [{ role: 'user', parts }]
+
+  // Intento 1: con búsqueda de Google (datos precisos y citas).
+  // Si la cuota de búsqueda falla, intento 2: sin búsqueda — el modelo
+  // extrae el lugar con su conocimiento y deja los precios/horarios
+  // marcados como "verificar antes del viaje". Nunca bloquea al usuario.
+  let raw, sources = []
+  try {
+    ;({ text: raw, sources } = await callGemini(contents, { system, useSearch: true }))
+  } catch {
+    ;({ text: raw, sources } = await callGemini(contents, {
+      system: system + '\n\nNOTA: la búsqueda web no está disponible en este momento; usa tu conocimiento propio. Ante cualquier dato que pueda haber cambiado (precios, horarios), anótalo en reservation_notes con la advertencia "verificar antes del viaje".',
+      useSearch: false,
+    }))
+  }
 
   // Extraer el JSON aunque venga con texto alrededor o en un bloque ```json
   const match = raw.match(/\{[\s\S]*\}/)

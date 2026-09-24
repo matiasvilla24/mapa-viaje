@@ -10,59 +10,68 @@
 const KEY = import.meta.env.VITE_GEMINI_API_KEY
 export const aiConfigured = Boolean(KEY)
 
-const MODEL = 'gemini-flash-latest'
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+// Cadena de modelos: el primero saturado o sin cuota salta al siguiente.
+// (el plan gratuito tiene límites muy justos por minuto y picos de demanda)
+const MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest']
 
-async function callGemini(contents, { system, useSearch = true, retriesLeft = 1 } = {}) {
-  if (!aiConfigured) throw new Error('IA no configurada: falta VITE_GEMINI_API_KEY')
-  const body = { contents }
+async function callGeminiOnce(model, contents, { system, useSearch = true, retriesLeft = 1 } = {}) {
+  const body = { contents, model }
   if (system) body.systemInstruction = { parts: [{ text: system }] }
   if (useSearch) body.tools = [{ google_search: {} }]
 
-  const doFetch = () => fetch(ENDPOINT, {
+  const doFetch = () => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY },
     body: JSON.stringify(body),
   })
 
-  // El plan gratuito tiene límites por minuto y picos de demanda:
-  // se reintenta solo una vez tras una pausa antes de rendirse.
+  // Reintento único tras una pausa ante 429 (cuota por minuto) o 503 (saturación)
   let res = await doFetch()
   if ((res.status === 429 || res.status === 503) && retriesLeft > 0) {
     await new Promise((r) => setTimeout(r, 8000))
     res = await doFetch()
   }
-  if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    if (res.status === 429) {
-      throw new Error('Se alcanzó el límite gratuito de la IA por ahora (se renueva cada minuto). Espera un momentito y vuelve a preguntar. 🙏')
-    }
-    if (res.status === 503) {
-      throw new Error('La IA está saturada ahora mismo. Prueba de nuevo en un minuto. 🙏')
-    }
-    throw new Error(`Gemini respondió ${res.status}: ${t.slice(0, 180)}`)
-  }
-  const data = await res.json()
-  const cand = data.candidates?.[0]
-  const text = (cand?.content?.parts || []).map((p) => p.text || '').join('')
+  return res
+}
 
-  // Fuentes: formato clásico (groundingMetadata) y nuevo (annotations)
-  const sources = []
-  const pushSource = (uri, title) => {
-    if (!uri || sources.some((s) => s.uri === uri)) return
-    let host = title
-    try { host = title || new URL(uri).hostname.replace('www.', '') } catch { /* url rara: usar tal cual */ }
-    sources.push({ uri, title: host })
-  }
-  for (const c of cand?.groundingMetadata?.groundingChunks || []) {
-    pushSource(c.web?.uri, c.web?.title)
-  }
-  for (const part of cand?.content?.parts || []) {
-    for (const a of part.annotations || []) {
-      if (a.type === 'url_citation') pushSource(a.url, a.title)
+async function callGemini(contents, { system, useSearch = true } = {}) {
+  if (!aiConfigured) throw new Error('IA no configurada: falta VITE_GEMINI_API_KEY')
+  let lastErr = null
+  for (const model of MODELS) {
+    const res = await callGeminiOnce(model, contents, { system, useSearch })
+    if (res.ok) {
+      const data = await res.json()
+      const cand = data.candidates?.[0]
+      const text = (cand?.content?.parts || []).map((p) => p.text || '').join('')
+
+      // Fuentes: formato clásico (groundingMetadata) y nuevo (annotations)
+      const sources = []
+      const pushSource = (uri, title) => {
+        if (!uri || sources.some((s) => s.uri === uri)) return
+        let host = title
+        try { host = title || new URL(uri).hostname.replace('www.', '') } catch { /* url rara: usar tal cual */ }
+        sources.push({ uri, title: host })
+      }
+      for (const c of cand?.groundingMetadata?.groundingChunks || []) {
+        pushSource(c.web?.uri, c.web?.title)
+      }
+      for (const part of cand?.content?.parts || []) {
+        for (const a of part.annotations || []) {
+          if (a.type === 'url_citation') pushSource(a.url, a.title)
+        }
+      }
+      return { text, sources }
     }
+    const t = await res.text().catch(() => '')
+    lastErr = new Error(
+      res.status === 429
+        ? 'Se alcanzó el límite gratuito de la IA por ahora (se renueva cada minuto). Espera un momentito y vuelve a preguntar. 🙏'
+        : res.status === 503
+          ? 'La IA está saturada ahora mismo. Prueba de nuevo en un minuto. 🙏'
+          : `Gemini respondió ${res.status}: ${t.slice(0, 180)}`,
+    )
   }
-  return { text, sources }
+  throw lastErr
 }
 
 // ── AI Overview: preguntar sobre un lugar, con búsqueda web y citas ──

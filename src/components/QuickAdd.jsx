@@ -3,7 +3,9 @@ import { extractPlaceFromContent, mergePlaceInfo } from '../aiClient'
 import { CATEGORIES, CATEGORY_KEYS, DATE_OPTIONS, fmtDate } from '../constants'
 import { db, configured } from '../supabaseClient'
 
-// Duplicado: mismo nombre normalizado o a menos de ~150 metros.
+// Duplicado EXPLÍCITO: mismo nombre normalizado (sin acentos/puntuación).
+// La proximidad NO decide — lugares distintos pueden estar a 50 m (una
+// iglesia frente a un castillo). La cercanía solo genera un aviso suave.
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
 const distM = (a, b) => {
   if (a?.lat == null || a?.lng == null || b?.lat == null || b?.lng == null) return Infinity
@@ -15,11 +17,10 @@ const distM = (a, b) => {
 function findDuplicate(existingPlaces, candidate) {
   const n = norm(candidate.name)
   if (!n) return null
-  return existingPlaces.find(
-    (p) =>
-      norm(p.name) === n ||
-      distM(p, candidate) < 150,
-  ) || null
+  return existingPlaces.find((p) => norm(p.name) === n) || null
+}
+function findNearby(existingPlaces, candidate) {
+  return existingPlaces.find((p) => p !== undefined && distM(p, candidate) < 200) || null
 }
 
 // Modal "Quick Add": pegar un link (YouTube, Instagram, TikTok, artículo),
@@ -34,6 +35,7 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
   const [result, setResult] = useState(null)   // { place, sources }
   const [editName, setEditName] = useState(null) // edición rápida post-extracción
   const [duplicate, setDuplicate] = useState(null)
+  const [nearby, setNearby] = useState(null)
   const [mergeNote, setMergeNote] = useState(null)
   const fileInputRef = useRef(null)
   const saveAuthor = (v) => { setAuthor(v); localStorage.setItem('mv_whoami', v) }
@@ -66,6 +68,7 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
       const dup = findDuplicate(existingPlaces, r.place)
       setResult(r)
       setDuplicate(dup)
+      setNearby(dup ? null : findNearby(existingPlaces, r.place))
     } catch (e) {
       setErr(e.message)
     } finally {
@@ -85,7 +88,23 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
 
       // ── ¿Ya existe? → fusionar la info nueva en el pin existente ──
       if (duplicate) {
-        const { patch, noteLine } = await mergePlaceInfo(duplicate, p, sourceUrl)
+        const { patch, noteLine, samePlace } = await mergePlaceInfo(duplicate, p, sourceUrl)
+        if (samePlace === false) {
+          // La IA determinó que son lugares distintos: crear pin nuevo
+          setDuplicate(null)
+          const row = await db.insert({
+            ...placeCols,
+            ...overrides,
+            notes: [
+              p.extraction_summary ? `🤖 ${p.extraction_summary}` : null,
+              p.notes,
+            ].filter(Boolean).join('\n').slice(0, 2000) || null,
+            source_url: sourceUrl,
+            added_by: author.trim() || 'Anónimo',
+          })
+          onSaved?.(row)
+          return
+        }
         const newNotes = [duplicate.notes, noteLine].filter(Boolean).join('\n').slice(0, 2000)
         const row = await db.update(duplicate.id, {
           ...patch,
@@ -200,6 +219,13 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
                 </p>
                 <p className="text-[12px] text-amber-700 mt-1">
                   Al guardar, <b>no se duplica</b>: la IA incorporará la información nueva (datos curiosos, horarios, highlights) a la ficha existente.
+                </p>
+              </div>
+            )}
+            {nearby && !mergeNote && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[12px] text-slate-600">
+                  📍 Queda a <b>{Math.round(distM(nearby, result.place))} m</b> de «{nearby.name}» — verifícalo en el mapa si crees que es el mismo sitio; si lo es, guarda igual y la IA los fusionará.
                 </p>
               </div>
             )}

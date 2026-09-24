@@ -132,7 +132,9 @@ async function fetchPageText(url) {
 export async function mergePlaceInfo(existing, incoming, sourceUrl) {
   const system =
     'Fusiona información de un lugar turístico. Recibes el lugar YA GUARDADO y datos NUEVOS extraídos de un enlace/artículo/video. ' +
-    'Responde ÚNICAMENTE con JSON: {"description":"","highlights":"","price":"","opening_hours":"","reservation_notes":"","note_line":""}\n' +
+    'PRIMERO decide si hablan del MISMO lugar: lugares distintos pueden estar muy cerca (una iglesia frente a un castillo no son el mismo sitio). ' +
+    'Si NO es el mismo lugar, responde {"same_place":false} y nada más.\n' +
+    'Si ES el mismo lugar, responde ÚNICAMENTE con JSON: {"same_place":true,"description":"","highlights":"","price":"","opening_hours":"","reservation_notes":"","note_line":""}\n' +
     'Reglas: description = versión combinada SIN repetir contenido (máx 5 frases, español). highlights = lista combinada separada por comas, sin duplicar ítems. ' +
     'price/opening_hours/reservation_notes: solo reemplaza si el dato nuevo es concreto y el guardado está vacío o dice "verificar"; si no, copia el valor guardado intacto. ' +
     'note_line = UNA línea tipo "🔄 Añadido desde <fuente>: <qué se sumó>". Si la info nueva no aporta nada nuevo, devuelve los campos del guardado sin cambios y dilo en note_line.'
@@ -160,7 +162,9 @@ export async function mergePlaceInfo(existing, incoming, sourceUrl) {
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('La IA no devolvió la fusión esperada.')
   const p = JSON.parse(match[0])
+  if (p.same_place === false) return { samePlace: false, patch: {}, noteLine: '' }
   return {
+    samePlace: true,
     patch: {
       description: p.description || existing.description || null,
       highlights: p.highlights || existing.highlights || null,

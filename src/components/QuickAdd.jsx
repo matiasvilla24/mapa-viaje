@@ -56,8 +56,10 @@ export default function QuickAdd({ onClose, onSaved }) {
     try {
       const p = result.place
       const sourceUrl = input.trim() || null
+      // extraction_summary es interno (ya se integra en notes); no es columna de la tabla
+      const { extraction_summary: _summary, ...placeCols } = p
       const row = await db.insert({
-        ...p,
+        ...placeCols,
         ...overrides,
         notes: [
           p.extraction_summary ? `🤖 ${p.extraction_summary}` : null,

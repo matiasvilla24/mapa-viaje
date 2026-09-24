@@ -1,11 +1,30 @@
 import { useState, useRef } from 'react'
-import { extractPlaceFromContent } from '../aiClient'
+import { extractPlaceFromContent, mergePlaceInfo } from '../aiClient'
 import { CATEGORIES, CATEGORY_KEYS, DATE_OPTIONS, fmtDate } from '../constants'
 import { db, configured } from '../supabaseClient'
 
+// Duplicado: mismo nombre normalizado o a menos de ~150 metros.
+const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+const distM = (a, b) => {
+  if (a?.lat == null || a?.lng == null || b?.lat == null || b?.lng == null) return Infinity
+  const R = 6371000, rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+function findDuplicate(existingPlaces, candidate) {
+  const n = norm(candidate.name)
+  if (!n) return null
+  return existingPlaces.find(
+    (p) =>
+      norm(p.name) === n ||
+      distM(p, candidate) < 150,
+  ) || null
+}
+
 // Modal "Quick Add": pegar un link (YouTube, Instagram, TikTok, artículo),
 // un texto o una captura → la IA extrae el lugar → previsualizar → guardar.
-export default function QuickAdd({ onClose, onSaved }) {
+export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
   const [input, setInput] = useState('')
   const [file, setFile] = useState(null)
   const [preview, setFilePreview] = useState(null)
@@ -14,6 +33,8 @@ export default function QuickAdd({ onClose, onSaved }) {
   const [err, setErr] = useState(null)
   const [result, setResult] = useState(null)   // { place, sources }
   const [editName, setEditName] = useState(null) // edición rápida post-extracción
+  const [duplicate, setDuplicate] = useState(null)
+  const [mergeNote, setMergeNote] = useState(null)
   const fileInputRef = useRef(null)
   const saveAuthor = (v) => { setAuthor(v); localStorage.setItem('mv_whoami', v) }
 
@@ -42,7 +63,9 @@ export default function QuickAdd({ onClose, onSaved }) {
       }
       const r = await extractPlaceFromContent({ text: t, imageBase64, imageMime })
       if (!r.place.name) throw new Error('La IA no identificó un lugar. Prueba con más contexto (título, canal, ciudad).')
+      const dup = findDuplicate(existingPlaces, r.place)
       setResult(r)
+      setDuplicate(dup)
     } catch (e) {
       setErr(e.message)
     } finally {
@@ -53,11 +76,29 @@ export default function QuickAdd({ onClose, onSaved }) {
   const save = async (overrides = {}) => {
     if (!result) return
     setBusy(true)
+    setErr(null)
     try {
       const p = result.place
       const sourceUrl = input.trim() || null
       // extraction_summary es interno (ya se integra en notes); no es columna de la tabla
       const { extraction_summary: _summary, ...placeCols } = p
+
+      // ── ¿Ya existe? → fusionar la info nueva en el pin existente ──
+      if (duplicate) {
+        const { patch, noteLine } = await mergePlaceInfo(duplicate, p, sourceUrl)
+        const newNotes = [duplicate.notes, noteLine].filter(Boolean).join('\n').slice(0, 2000)
+        const row = await db.update(duplicate.id, {
+          ...patch,
+          notes: newNotes,
+          ...(sourceUrl && !duplicate.source_url ? { source_url: sourceUrl } : {}),
+          ...(p.must_see && !duplicate.must_see ? { must_see: true } : {}),
+        })
+        setMergeNote(noteLine)
+        setBusy(false)
+        setTimeout(() => onSaved?.(row), 1600)
+        return
+      }
+
       const row = await db.insert({
         ...placeCols,
         ...overrides,
@@ -147,8 +188,27 @@ export default function QuickAdd({ onClose, onSaved }) {
             <div className="flex items-center gap-1.5 text-[11px] text-violet-600 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
               <span>🤖</span>
               <span className="flex-1">{result.place.extraction_summary || 'Lugar extraído por la IA'}</span>
-              <button onClick={() => setResult(null)} className="font-bold text-violet-500 hover:text-violet-700">↺ volver</button>
+              <button onClick={() => { setResult(null); setDuplicate(null); setMergeNote(null) }} className="font-bold text-violet-500 hover:text-violet-700">↺ volver</button>
             </div>
+
+            {/* Aviso de lugar ya existente */}
+            {duplicate && !mergeNote && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+                <p className="text-[13px] font-bold text-amber-800">
+                  ⚠️ Este lugar ya está en el mapa: <b>«{duplicate.name}»</b>
+                  <span className="font-normal text-amber-700"> ({duplicate.city}{duplicate.added_by ? ` · agregado por ${duplicate.added_by}` : ''})</span>
+                </p>
+                <p className="text-[12px] text-amber-700 mt-1">
+                  Al guardar, <b>no se duplica</b>: la IA incorporará la información nueva (datos curiosos, horarios, highlights) a la ficha existente.
+                </p>
+              </div>
+            )}
+            {mergeNote && (
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3">
+                <p className="text-[13px] font-bold text-emerald-800">✅ Información fusionada con «{duplicate.name}»</p>
+                <p className="text-[12px] text-emerald-700 mt-1">{mergeNote}</p>
+              </div>
+            )}
 
             {result.sources?.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -203,9 +263,9 @@ export default function QuickAdd({ onClose, onSaved }) {
                 disabled={busy}
                 className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 disabled:opacity-40"
               >
-                {busy ? 'Guardando…' : '✅ Guardar en el mapa'}
+                {busy ? (duplicate ? '🔄 Fusionando con el lugar existente…' : 'Guardando…') : duplicate ? '🔄 Actualizar el lugar existente' : '✅ Guardar en el mapa'}
               </button>
-              <button onClick={() => setResult(null)} className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-50">
+              <button onClick={() => { setResult(null); setDuplicate(null); setMergeNote(null) }} className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-50">
                 Cancelar
               </button>
             </div>

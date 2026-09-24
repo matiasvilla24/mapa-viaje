@@ -126,6 +126,52 @@ async function fetchPageText(url) {
   return null
 }
 
+// ── Fusión: info nueva sobre un lugar que ya existe en el mapa ──
+// Devuelve un patch con los campos combinados (sin repetir contenido)
+// y una línea de nota explicando qué se añadió y de dónde.
+export async function mergePlaceInfo(existing, incoming, sourceUrl) {
+  const system =
+    'Fusiona información de un lugar turístico. Recibes el lugar YA GUARDADO y datos NUEVOS extraídos de un enlace/artículo/video. ' +
+    'Responde ÚNICAMENTE con JSON: {"description":"","highlights":"","price":"","opening_hours":"","reservation_notes":"","note_line":""}\n' +
+    'Reglas: description = versión combinada SIN repetir contenido (máx 5 frases, español). highlights = lista combinada separada por comas, sin duplicar ítems. ' +
+    'price/opening_hours/reservation_notes: solo reemplaza si el dato nuevo es concreto y el guardado está vacío o dice "verificar"; si no, copia el valor guardado intacto. ' +
+    'note_line = UNA línea tipo "🔄 Añadido desde <fuente>: <qué se sumó>". Si la info nueva no aporta nada nuevo, devuelve los campos del guardado sin cambios y dilo en note_line.'
+
+  const payload = {
+    guardado: {
+      name: existing.name, city: existing.city,
+      description: existing.description || '', highlights: existing.highlights || '',
+      price: existing.price || '', opening_hours: existing.opening_hours || '',
+      reservation_notes: existing.reservation_notes || '', notes: existing.notes || '',
+    },
+    nuevo: {
+      description: incoming.description || '', highlights: incoming.highlights || '',
+      price: incoming.price || '', opening_hours: incoming.opening_hours || '',
+      reservation_notes: incoming.reservation_notes || '',
+      resumen_extraccion: incoming.extraction_summary || '',
+    },
+    fuente: sourceUrl || 'recurso pegado',
+  }
+
+  const { text: raw } = await callGemini(
+    [{ role: 'user', parts: [{ text: JSON.stringify(payload, null, 1) }] }],
+    { system, useSearch: false },
+  )
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('La IA no devolvió la fusión esperada.')
+  const p = JSON.parse(match[0])
+  return {
+    patch: {
+      description: p.description || existing.description || null,
+      highlights: p.highlights || existing.highlights || null,
+      ...(p.price ? { price: p.price } : {}),
+      ...(p.opening_hours ? { opening_hours: p.opening_hours } : {}),
+      ...(p.reservation_notes ? { reservation_notes: p.reservation_notes } : {}),
+    },
+    noteLine: p.note_line || '🔄 Información adicional incorporada.',
+  }
+}
+
 // ── Quick Add: extraer un lugar desde un link / texto / captura ──
 export const QUICK_ADD_CATEGORIES = [
   'museo', 'iglesia', 'monumento', 'ruina_arqueologica',

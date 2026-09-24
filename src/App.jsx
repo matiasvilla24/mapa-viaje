@@ -234,6 +234,7 @@ export default function App() {
       {/* ── Modales ── */}
       {quickAdd && (
         <QuickAdd
+          existingPlaces={places}
           onClose={() => setQuickAdd(false)}
           onSaved={(row) => { setQuickAdd(false); setSelected(row) }}
         />

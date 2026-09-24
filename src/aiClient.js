@@ -104,6 +104,28 @@ export async function askAboutPlace(place, question, history = []) {
   }
 }
 
+// ── Lectura del contenido real de un enlace ─────────────────────
+// Instagram/TikTok bloquean el acceso directo; se intenta primero la
+// vía oficial (oEmbed de YouTube) y después un lector público. Si nada
+// funciona, se devuelve null y la IA NO debe inventar el lugar.
+async function fetchPageText(url) {
+  try {
+    if (/youtube\.com|youtu\.be/.test(url)) {
+      const r = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`)
+      if (r.ok) {
+        const j = await r.json()
+        return `Título del video: "${j.title}". Canal: ${j.author_name}.`
+      }
+    }
+    const r = await fetch('https://r.jina.ai/' + url, { headers: { Accept: 'text/plain' } })
+    if (r.ok) {
+      const t = await r.text()
+      if (t && t.length > 40) return t.slice(0, 6000)
+    }
+  } catch { /* sin acceso: devolver null */ }
+  return null
+}
+
 // ── Quick Add: extraer un lugar desde un link / texto / captura ──
 export const QUICK_ADD_CATEGORIES = [
   'museo', 'iglesia', 'monumento', 'ruina_arqueologica',
@@ -116,6 +138,9 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
     'e identifica el LUGAR TURÍSTICO principal que representa. Puede ser de YouTube, Instagram, TikTok, un blog o un artículo. ' +
     'Usa la búsqueda de Google para completar datos reales: coordenadas exactas, precios y horarios vigentes. ' +
     'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera de esos destinos.\n\n' +
+    'REGLA CRÍTICA contra inventar: si solo tienes el enlace pero NO el contenido real (no venió texto, título ni imagen del post), ' +
+    'NO supongas ni deduzcas el lugar — responde con "name":"" y en extraction_summary escribe que no se pudo acceder al contenido del enlace. ' +
+    'Inventar un lugar plausibles (ej. deducir "Coliseo" por ser un reel de Roma) es un error grave.\n\n' +
     'Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin explicación) con esta forma exacta:\n' +
     '{"name":"","city":"","country":"","category":"museo|iglesia|monumento|ruina_arqueologica|parque|paseo_barrio|comida|otro",' +
     '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
@@ -130,6 +155,19 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
     parts.push({ inlineData: { mimeType: imageMime || 'image/jpeg', data: imageBase64 } })
   }
   parts.push({ text: text || 'Extrae el lugar principal de esta captura/página.' })
+
+  // Si pegaron un enlace, intentar leer su contenido real y adjuntarlo
+  const urlMatch = (text || '').match(/https?:\/\/[^\s]+/)
+  let pageFailed = false
+  if (urlMatch) {
+    const pageText = await fetchPageText(urlMatch[0])
+    if (pageText) {
+      parts.push({ text: `Contenido real obtenido del enlace (${urlMatch[0]}):\n${pageText}\n\nUsa ESTE contenido como fuente principal de la extracción.` })
+    } else {
+      pageFailed = true
+      parts.push({ text: 'NOTA: el contenido del enlace NO pudo ser accedido (la plataforma lo bloquea). Si no hay suficiente contexto en el resto del mensaje, responde con name vacío en vez de inventar.' })
+    }
+  }
 
   const contents = [{ role: 'user', parts }]
 
@@ -155,6 +193,13 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
     parsed = JSON.parse(match[0])
   } catch {
     throw new Error('No pude interpretar la respuesta de la IA. Intenta de nuevo.')
+  }
+  if (!parsed.name) {
+    throw new Error(
+      pageFailed
+        ? 'No se pudo leer el contenido del enlace (Instagram/TikTok bloquean el acceso automático). Truco: copia el TEXTO del post/caption y pégalo aquí, o sube una captura de pantalla del reel. 📸'
+        : 'La IA no identificó un lugar claro en el contenido. Prueba con más contexto.',
+    )
   }
   return {
     place: {

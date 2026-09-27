@@ -176,6 +176,28 @@ export async function mergePlaceInfo(existing, incoming, sourceUrl) {
   }
 }
 
+// ── Chat general: cualquier pregunta sobre el viaje (botón ❓) ──
+export async function askAboutTrip(question, history = [], tripSummary = '') {
+  const system =
+    'Eres el asistente de viaje de una familia colombiana (Papá, Mamá, Susi y Mati) que visita Europa del 25 dic 2026 al 10 ene 2027: ' +
+    'Medellín → Madrid (26 dic) → París (27–31 dic, fin de año allá) → Milán (1–2 ene) → Verona → Venecia (3 ene) → Florencia (4 ene) → Roma (5–8 ene) → Pompeya (7 ene) → Madrid (9 ene) → Medellín (10 ene).\n' +
+    (tripSummary ? `Lugares guardados en su mapa:\n${tripSummary}\n\n` : '') +
+    'Responde en español, breve y práctico (máximo ~180 palabras), con datos actuales verificados mediante búsqueda. ' +
+    'Pueden preguntarte por precios, horarios, cómo moverse, clima en diciembre/enero, documentación, propinas, qué empacar, etc. ' +
+    'Si el dato puede cambiar (precios, horarios, reservas), aclarar que lo confirmen en la fuente oficial antes de ir.'
+
+  const contents = [
+    ...history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
+    { role: 'user', parts: [{ text: question }] },
+  ]
+  try {
+    return await callGemini(contents, { system, useSearch: true })
+  } catch {
+    const r = await callGemini(contents, { system, useSearch: false, retriesLeft: 0 })
+    return { ...r, text: `⚠️ _Respuesta sin búsqueda web en vivo (límite temporal de Google alcanzado — puede estar desactualizada)._\n\n${r.text}` }
+  }
+}
+
 // ── Quick Add: extraer un lugar desde un link / texto / captura ──
 export const QUICK_ADD_CATEGORIES = [
   'museo', 'iglesia', 'monumento', 'ruina_arqueologica',

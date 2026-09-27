@@ -4,10 +4,10 @@ import QuickAdd from './components/QuickAdd'
 import { CATEGORIES, CATEGORY_KEYS, PEOPLE, ITINERARY, fmtDate } from './constants'
 import MapView from './components/MapView'
 import Agenda from './components/Agenda'
-import RouteView from './components/RouteView'
 import Flights from './components/Flights'
 import Accommodations from './components/Accommodations'
 import Budget from './components/Budget'
+import AskAI from './components/AskAI'
 import PlaceModal from './components/PlaceModal'
 import PlaceForm from './components/PlaceForm'
 
@@ -21,6 +21,7 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [editing, setEditing] = useState(null)   // null | 'new' | place
   const [quickAdd, setQuickAdd] = useState(false)
+  const [askAI, setAskAI] = useState(false)
 
   // Operaciones pendientes de sincronizar (hechas sin conexión)
   const [pending, setPending] = useState(0)
@@ -131,30 +132,36 @@ export default function App() {
   return (
     <div className="h-full flex flex-col bg-slate-50 relative">
       {/* ── Cabecera ── */}
-      <header className="flex-shrink-0 bg-slate-900 text-white px-4 py-2.5 flex items-center gap-3 z-20 shadow-md">
+      <header className="flex-shrink-0 bg-slate-900 text-white px-4 py-2.5 flex items-center gap-2.5 z-20 shadow-md">
         <div className="flex-1 min-w-0">
-          <h1 className="font-bold leading-tight text-[15px]">
-            🗺️ Mapa del viaje <span className="text-slate-400 font-normal">· dic 25 – ene 10</span>
-          </h1>
-          <p className="text-[11px] text-slate-400 leading-tight">
-            {places.length} {places.length === 1 ? 'lugar' : 'lugares'}{!configured && ' · modo demo (sin Supabase)'}
-            {configured && pending > 0 && (
-              <span className="text-amber-400"> · ⏳ {pending} pendiente{pending !== 1 ? 's' : ''} de sincronizar</span>
-            )}
-          </p>
+          <h1 className="font-bold leading-tight text-[15px]">🗺️ Mapa del viaje</h1>
+          {configured && pending > 0 && (
+            <p className="text-[11px] text-amber-400 leading-tight">⏳ {pending} pendiente{pending !== 1 ? 's' : ''} de sincronizar</p>
+          )}
         </div>
         <button
+          onClick={() => { setAskAI(true); cancelPick() }}
+          className="flex-shrink-0 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold text-base w-10 h-10 rounded-xl transition-colors shadow"
+          title="Preguntar a la IA sobre el viaje"
+          aria-label="Preguntar a la IA sobre el viaje"
+        >
+          ❓
+        </button>
+        <button
           onClick={() => { setQuickAdd(true); cancelPick() }}
-          className="flex-shrink-0 bg-violet-500 hover:bg-violet-400 active:bg-violet-600 text-white font-bold text-sm px-3 py-2 rounded-xl transition-colors shadow"
+          className="flex-shrink-0 bg-violet-500 hover:bg-violet-400 active:bg-violet-600 text-white font-bold text-base w-10 h-10 rounded-xl transition-colors shadow"
           title="Agregar desde un link, texto o captura (con IA)"
+          aria-label="Quick Add con IA"
         >
           ✨
         </button>
         <button
           onClick={() => { setEditing('new'); cancelPick() }}
-          className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-900 font-bold text-sm px-3.5 py-2 rounded-xl transition-colors shadow"
+          className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-900 font-bold text-base w-10 h-10 rounded-xl transition-colors shadow"
+          title="Agregar lugar manualmente"
+          aria-label="Agregar lugar"
         >
-          ➕ Agregar
+          ➕
         </button>
       </header>
 
@@ -218,7 +225,7 @@ export default function App() {
             onPick={handlePick}
           />
         ) : view === 'agenda' ? (
-          <Agenda places={filtered} onOpen={(p) => setSelected(p)} />
+          <Agenda places={filtered} onOpen={(p) => setSelected(p)} onOpenCity={focusCity} />
         ) : view === 'vuelos' ? (
           <Flights whoAmI="Matías" />
         ) : view === 'alojamientos' ? (
@@ -226,29 +233,34 @@ export default function App() {
         ) : view === 'presupuesto' ? (
           <Budget />
         ) : (
-          <RouteView places={places} onOpenCity={focusCity} />
+          <MapView
+            places={filtered}
+            selected={selected}
+            onSelect={(p) => setSelected(p)}
+            pickMode={pickMode}
+            onPick={handlePick}
+          />
         )}
       </main>
 
       {/* ── Navegación inferior ── */}
       <nav className="flex-shrink-0 bg-white border-t border-slate-200 flex z-20 pb-[env(safe-area-inset-bottom)]">
         {[
-          ['mapa', '🗺️', 'Mapa'],
-          ['agenda', '📅', 'Agenda'],
-          ['vuelos', '🚄', 'Transporte'],
-          ['alojamientos', '🏨', 'Alojamientos'],
-          ['presupuesto', '💰', 'Presupuesto'],
-          ['ruta', '🧭', 'Ruta'],
-        ].map(([key, icon, label]) => (
+          ['mapa', '🗺️'],
+          ['agenda', '📅'],
+          ['vuelos', '🚄'],
+          ['alojamientos', '🏨'],
+          ['presupuesto', '💰'],
+        ].map(([key, icon]) => (
           <button
             key={key}
             onClick={() => setView(key)}
-            className={`flex-1 py-3 text-center transition-colors ${
-              view === key ? 'text-emerald-600 font-bold' : 'text-slate-600 hover:text-slate-800'
+            aria-label={key}
+            className={`flex-1 py-3.5 text-2xl leading-none text-center transition-colors ${
+              view === key ? 'text-emerald-600' : 'text-slate-600 hover:text-slate-800'
             }`}
           >
-            <span className="block text-lg leading-none">{icon}</span>
-            <span className="text-[11px]">{label}</span>
+            {icon}
           </button>
         ))}
       </nav>
@@ -261,6 +273,7 @@ export default function App() {
           onSaved={(row) => { setQuickAdd(false); setSelected(row) }}
         />
       )}
+      {askAI && <AskAI onClose={() => setAskAI(false)} places={places} />}
       {selected && !editing && !quickAdd && (
         <PlaceModal
           place={places.find((p) => p.id === selected.id) || selected}

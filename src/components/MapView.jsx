@@ -9,8 +9,9 @@ const EMOJI = {
 
 function makeIcon(place, dimmed) {
   const color = CATEGORIES[place.category]?.color || CATEGORIES.otro.color
-  // Borde con el color de la persona que lo agregó (azul/amarillo/morado/rojo)
-  const person = personColor(place.added_by_tag)
+  // Cuando ya haya lugares agregados por la familia, el borde mostrará
+  // el color de quien lo agregó (azul/amarillo/morado/rojo).
+  const person = place.added_by_tag && place.added_by !== 'Precarga' ? personColor(place.added_by_tag) : '#ffffff'
   const emoji = place.visited ? '✅' : (EMOJI[place.category] || EMOJI.otro)
   const size = place.must_see ? 38 : 32
   return L.divIcon({
@@ -20,7 +21,7 @@ function makeIcon(place, dimmed) {
       transform:rotate(-45deg);
       background:${color};
       border:2.5px solid ${person};
-      box-shadow:0 0 0 1.5px white, 0 2px 6px rgba(0,0,0,.4), 0 0 0 ${place.must_see ? 4 : 0}px ${color}55;
+      box-shadow:0 2px 6px rgba(0,0,0,.4), 0 0 0 ${place.must_see ? 3 : 0}px ${color}55;
       display:flex;align-items:center;justify-content:center;
       opacity:${dimmed ? 0.25 : (place.visited ? 0.55 : 1)};
     ">
@@ -137,7 +138,7 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
             </div>
           ))}
         </div>
-        <div className="font-bold text-slate-700 mt-1.5 mb-1">Borde = quién lo agregó</div>
+        <div className="font-bold text-slate-700 mt-1.5 mb-1">Quién lo agregó</div>
         <div className="grid grid-cols-2 gap-x-2">
           {PEOPLE.map((p) => (
             <div key={p.key} className="flex items-center gap-1.5 text-slate-600">

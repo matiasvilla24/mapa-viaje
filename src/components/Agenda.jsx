@@ -2,6 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate } from '../constants'
 import { dayNotesDb, configured } from '../supabaseClient'
 
+// Conteo de lugares por ciudad (para el bloque de ruta dentro de la agenda)
+function useCityCounts(places) {
+  return useMemo(() => {
+    const c = {}
+    places.forEach((p) => { if (p.city) c[p.city] = (c[p.city] || 0) + 1 })
+    return c
+  }, [places])
+}
+
 // Chips de persona (etiquetas azul/amarillo/morado/rojo)
 function PersonChips({ tags, tag }) {
   const list = (Array.isArray(tags) && tags.length ? tags : (tag ? [tag] : []))
@@ -20,7 +29,7 @@ function PersonChips({ tags, tag }) {
   )
 }
 
-export default function Agenda({ places, onOpen }) {
+export default function Agenda({ places, onOpen, onOpenCity }) {
   // Notas por día: dónde empieza, termina y se duerme (editables + realtime)
   const [notes, setNotes] = useState({})
   const [editingDate, setEditingDate] = useState(null)
@@ -59,6 +68,25 @@ export default function Agenda({ places, onOpen }) {
       setSaving(false)
     }
   }
+
+  const cityCounts = useCityCounts(places)
+
+  // Ruta resumida: tramos de vuelo + rango de días por ciudad (ex-Ruta)
+  const { routeSteps, routeCityRanges } = useMemo(() => {
+    const seen = new Set()
+    const cityRanges = {}
+    ITINERARY.forEach((d) => {
+      if (d.travel) return
+      if (!cityRanges[d.city]) cityRanges[d.city] = [d.date, d.date]
+      else cityRanges[d.city][1] = d.date
+    })
+    const steps = ITINERARY.filter((d) => {
+      if (seen.has(d.label)) return false
+      seen.add(d.label)
+      return true
+    })
+    return { routeSteps: steps, routeCityRanges: cityRanges }
+  }, [])
 
   const { groups, unassigned } = useMemo(() => {
     const byDate = new Map()
@@ -114,9 +142,50 @@ export default function Agenda({ places, onOpen }) {
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">
       <h2 className="text-lg font-bold text-slate-900 mb-0.5">Agenda del viaje</h2>
       <p className="text-xs text-slate-500 mb-3">
-        Itinerario libre{configured ? '' : ' · modo demo'} · {unassigned.length} lugares sin día ·
-        cada día: dónde empieza, termina y se duerme
+        Medellín → Europa → Medellín · dic 25 – ene 10{configured ? '' : ' · modo demo'}
       </p>
+
+      {/* Ruta del viaje (antes pestaña Ruta) */}
+      <details className="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <summary className="px-3.5 py-2.5 flex items-center gap-2 cursor-pointer select-none">
+          <span className="text-base">🧭</span>
+          <span className="text-sm font-bold text-slate-800 flex-1">Ruta del viaje</span>
+          <span className="text-[11px] text-slate-400">ver tramos</span>
+        </summary>
+        <ol className="relative border-l-2 border-slate-200 ml-6 mr-3 mb-3 mt-1 space-y-4">
+          {routeSteps.map((d, i) => {
+            const isFlight = d.travel
+            const range = routeCityRanges[d.city]
+            const count = cityCounts[d.city] || 0
+            return (
+              <li key={i} className="ml-6">
+                <span
+                  className={`absolute -left-[11px] w-5 h-5 rounded-full border-2 border-white shadow flex items-center justify-center text-[10px] ${
+                    isFlight ? 'bg-sky-500' : 'bg-emerald-500'
+                  }`}
+                >
+                  {isFlight ? '✈️' : '📍'}
+                </span>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-xs font-mono font-bold text-slate-500">{fmtDate(d.date)}</span>
+                  <span className="font-bold text-slate-900">{d.label}</span>
+                </div>
+                {!isFlight && range && range[0] !== range[1] && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(range[0])} – {fmtDate(range[1])}</p>
+                )}
+                {!isFlight && count > 0 && (
+                  <button
+                    onClick={() => onOpenCity?.(d.city)}
+                    className="mt-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full px-2.5 py-0.5 transition-colors"
+                  >
+                    {count} {count === 1 ? 'lugar' : 'lugares'} en el mapa →
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+      </details>
 
       {groups.map((g) => {
         const n = notes[g.date] || {}

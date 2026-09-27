@@ -33,7 +33,7 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
   // Notas por día: dónde empieza, termina y se duerme (editables + realtime)
   const [notes, setNotes] = useState({})
   const [editingDate, setEditingDate] = useState(null)
-  const [draft, setDraft] = useState({ start_place: '', end_place: '', sleep_place: '' })
+  const [draft, setDraft] = useState({ start_place: '', end_place: '', sleep_place: '', breakfast: '', lunch: '', dinner: '' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -52,7 +52,14 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
 
   const startEdit = (date) => {
     const n = notes[date] || {}
-    setDraft({ start_place: n.start_place || '', end_place: n.end_place || '', sleep_place: n.sleep_place || '' })
+    setDraft({
+      start_place: n.start_place || '',
+      end_place: n.end_place || '',
+      sleep_place: n.sleep_place || '',
+      breakfast: n.breakfast || '',
+      lunch: n.lunch || '',
+      dinner: n.dinner || '',
+    })
     setEditingDate(date)
   }
 
@@ -209,14 +216,20 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
               <div className="ml-1 mb-1.5 flex flex-wrap gap-1.5">
                 <button
                   onClick={() => startEdit(g.date)}
-                  className="text-[11px] font-semibold px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-sky-400 transition-colors flex items-center gap-1"
-                  title="Editar inicio, fin y alojamiento del día"
+                  className="text-[11px] font-semibold px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-sky-400 transition-colors flex flex-wrap items-center gap-1"
+                  title="Editar inicio, fin, alojamiento y comidas del día"
                 >
                   {n.start_place ? <span>🌅 <b>{n.start_place}</b></span> : <span className="text-slate-400">🌅 inicio</span>}
                   <span className="text-slate-300">·</span>
                   {n.end_place ? <span>🌇 <b>{n.end_place}</b></span> : <span className="text-slate-400">🌇 fin</span>}
                   <span className="text-slate-300">·</span>
                   {n.sleep_place ? <span>🛏️ <b>{n.sleep_place}</b></span> : <span className="text-slate-400">🛏️ dormir</span>}
+                  <span className="text-slate-300">·</span>
+                  {n.breakfast ? <span>🥐 <b>{n.breakfast}</b></span> : <span className="text-slate-400">🥐 desayuno</span>}
+                  <span className="text-slate-300">·</span>
+                  {n.lunch ? <span>🍝 <b>{n.lunch}</b></span> : <span className="text-slate-400">🍝 almuerzo</span>}
+                  <span className="text-slate-300">·</span>
+                  {n.dinner ? <span>🍕 <b>{n.dinner}</b></span> : <span className="text-slate-400">🍕 cena</span>}
                   <span className="text-slate-300 ml-0.5">✏️</span>
                 </button>
               </div>
@@ -227,6 +240,9 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
                   ['start_place', '🌅 El día empieza en'],
                   ['end_place', '🌇 El día termina en'],
                   ['sleep_place', '🛏️ Se duerme en'],
+                  ['breakfast', '🥐 Desayuno'],
+                  ['lunch', '🍝 Almuerzo'],
+                  ['dinner', '🍕 Cena'],
                 ].map(([k, lbl]) => (
                   <label key={k} className="flex items-center gap-2">
                     <span className="text-[11px] font-semibold text-slate-500 w-32 flex-shrink-0">{lbl}</span>

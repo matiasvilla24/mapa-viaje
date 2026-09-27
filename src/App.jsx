@@ -140,8 +140,9 @@ export default function App() {
         <div className="bg-red-100 text-red-700 text-xs px-4 py-2">{error}</div>
       )}
 
-      {/* ── Barra única: filtros + acciones (❓ IA · ✨ Quick Add · ➕ Nuevo) ── */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 flex flex-wrap items-center gap-2 z-10">
+      {/* ── Barra superior: filtros arriba, acciones abajo a la derecha ── */}
+      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 z-10">
+        <div className="flex gap-2 overflow-x-auto thin-scroll">
         <select
           value={cityFilter}
           onChange={(e) => setCityFilter(e.target.value)}
@@ -179,8 +180,9 @@ export default function App() {
             ✕ Quitar filtros
           </button>
         )}
+        </div>
 
-        <div className="flex ml-auto items-center gap-1.5 flex-shrink-0">
+        <div className="flex justify-end items-center gap-1.5 mt-2">
         <button
           onClick={() => { setAskAI(true); cancelPick() }}
           className="flex-shrink-0 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow"
@@ -297,6 +299,7 @@ export default function App() {
           onCancel={() => { setEditing(null); cancelPick() }}
           onPickCoords={startPick}
           onCancelPick={cancelPick}
+          existingPlaces={places}
         />
       )}
     </div>

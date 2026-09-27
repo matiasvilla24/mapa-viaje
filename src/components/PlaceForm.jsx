@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CATEGORIES, CATEGORY_KEYS, PEOPLE } from '../constants'
 import { useSheetDismiss, SheetClose } from './sheetDismiss'
 
 const input = 'w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition'
 
-export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onCancelPick }) {
+export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onCancelPick, existingPlaces = [] }) {
   const editing = Boolean(initial?.id)
   const [f, setF] = useState({
     name: initial?.name || '',
@@ -20,6 +20,7 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     reservation_notes: initial?.reservation_notes || '',
     price: initial?.price || '',
     assigned_date: initial?.assigned_date || '',
+    assigned_time: initial?.assigned_time || '',
     must_see: initial?.must_see || false,
     notes: initial?.notes || '',
     added_by: initial?.added_by || 'Mati',
@@ -29,6 +30,16 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
   const [picking, setPicking] = useState(false)
   const sheet = useSheetDismiss(onCancel)
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
+
+  // Detecta si la franja fecha+hora elegida ya está ocupada por otro lugar.
+  const timeBusy = useMemo(() => {
+    if (!f.assigned_date || !f.assigned_time) return null
+    return (
+      existingPlaces.find(
+        (p) => p.id !== initial?.id && p.assigned_date === f.assigned_date && p.assigned_time === f.assigned_time,
+      ) || null
+    )
+  }, [f.assigned_date, f.assigned_time, existingPlaces, initial?.id])
 
   // Activar modo captura: el formulario se minimiza, el usuario toca el mapa y
   // el callback rellena lat/lng y restaura el formulario.
@@ -184,6 +195,32 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Fecha + hora asignada */}
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+            <span className="text-xs font-semibold text-slate-600">Día y hora de la visita</span>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="date"
+                value={f.assigned_date}
+                onChange={set('assigned_date')}
+                className={input}
+              />
+              <input
+                type="time"
+                value={f.assigned_time}
+                onChange={set('assigned_time')}
+                className={input}
+              />
+            </div>
+            {timeBusy && (
+              <div className="mt-2 rounded-lg bg-amber-100 border border-amber-300 px-3 py-2 text-xs text-amber-900">
+                ⚠️ <b>Franja comprometida:</b> ya hay algo planeado a esa fecha y hora —{' '}
+                <b>{timeBusy.name}</b>
+                {timeBusy.city ? ` (${timeBusy.city})` : ''}. Elegí otra hora o reprogramá uno de los dos.
+              </div>
+            )}
           </div>
 
           {/* Coordenadas + pick en mapa */}

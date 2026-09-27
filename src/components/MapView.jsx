@@ -44,7 +44,7 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
     const map = L.map(mapRef.current, {
       center: [44.5, 8.0],
       zoom: 5,
-      zoomControl: true,
+      zoomControl: false,
       tap: true,
     })
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {

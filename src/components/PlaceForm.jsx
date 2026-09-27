@@ -48,7 +48,7 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
   // Minimizado mientras se capturan coordenadas
   if (picking) {
     return (
-      <div className="fixed inset-x-0 top-14 z-[1001] flex justify-center px-4">
+      <div className="fixed inset-x-0 top-3 z-[1001] flex justify-center px-4">
         <div className="bg-slate-900 text-white rounded-full pl-4 pr-2 py-2 shadow-2xl flex items-center gap-3 text-sm font-semibold ring-1 ring-white/20">
           <span className="animate-pulse">👆 Toca el mapa para capturar las coordenadas</span>
           <button

@@ -11,10 +11,9 @@ update public.places
 set category = 'otro'
 where category = 'paseo_barrio';
 
--- (Opcional: si prefieres que los parques/jardines urbanos vayan a 'parque',
---  ejecuta también:)
--- update public.places set category = 'parque'
--- where category = 'otro' and lower(name) ~ 'parque|jardín|jardin|park';
+-- Extra: los parques/jardines urbanos que quedaron en 'otro' van a 'parque'
+update public.places set category = 'parque'
+where category = 'otro' and lower(name) ~ 'parque|jardín|jardin|park';
 
 -- 2) Todos los lugares existentes: agregados por Mati
 update public.places

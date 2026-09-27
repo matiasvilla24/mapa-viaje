@@ -198,36 +198,59 @@ export async function askAboutTrip(question, history = [], tripSummary = '') {
   }
 }
 
-// ── Quick Add: extraer un lugar desde un link / texto / captura ──
+// ── Quick Add: extraer un lugar desde un link / texto / captura / descripción ──
 export const QUICK_ADD_CATEGORIES = [
   'museo', 'iglesia', 'monumento', 'ruina_arqueologica',
-  'parque', 'paseo_barrio', 'comida', 'otro',
+  'parque', 'comida', 'otro',
 ]
 
+const CATEGORY_MENU = 'museo|iglesia|monumento|ruina_arqueologica|parque|comida|otro'
+
+// ¿Es una descripción libre del usuario (sin link ni captura)?
+// Ej.: "los 13 obeliscos egipcios de Roma". La IA debe BUSCAR esos lugares.
+const isFreeformRequest = ({ text, imageBase64 }) =>
+  Boolean(text && !imageBase64 && !/https?:\/\/[^\s]+/.test(text))
+
 export async function extractPlaceFromContent({ text, imageBase64, imageMime }) {
+  const freeform = isFreeformRequest({ text, imageBase64 })
   const system =
-    'Analiza el contenido (un enlace, texto o captura de pantalla sobre un lugar de interés para un viaje) ' +
-    'e identifica el LUGAR TURÍSTICO principal que representa. Puede ser de YouTube, Instagram, TikTok, un blog o un artículo. ' +
-    'Usa la búsqueda de Google para completar datos reales: coordenadas exactas, precios y horarios vigentes. ' +
-    'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera de esos destinos.\n\n' +
-    'REGLA CRÍTICA contra inventar: si solo tienes el enlace pero NO el contenido real (no venió texto, título ni imagen del post), ' +
-    'NO supongas ni deduzcas el lugar — responde con "name":"" y en extraction_summary escribe que no se pudo acceder al contenido del enlace. ' +
-    'Inventar un lugar plausibles (ej. deducir "Coliseo" por ser un reel de Roma) es un error grave.\n\n' +
-    'Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin explicación) con esta forma exacta:\n' +
-    '{"name":"","city":"","country":"","category":"museo|iglesia|monumento|ruina_arqueologica|parque|paseo_barrio|comida|otro",' +
-    '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
-    '"reservation_required":false,"reservation_notes":"",' +
-    '"extraction_summary":""}\n\n' +
-    'Reglas: lat/lng numéricos con 5+ decimales del punto exacto. description en español, 2-4 frases, mención breve de por qué es interesante (si viene de un video/red social, integre ese contexto). ' +
-    'NO decidas si el lugar es "imperdible": eso lo decide la familia en la app. NO asignes días del itinerario. ' +
-    'opening_hours y price con lo que encuentres en la web; si no hay dato confiable, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
-    'extraction_summary: 1 frase sobre qué era el recurso original; si el contenido menciona VARIOS lugares independientes, dilo aquí.'
+    freeform
+      ? 'El usuario describe en sus propias palabras lugar(es) que quiere agregar al mapa de su viaje. ' +
+        'BÚSCALOS en Google y devuelve el lugar que mejor coincida con la descripción (el más famoso/turístico si hay ambigüedad). ' +
+        'Ej.: "el obelisco egipcio de Roma" → Piazza del Popolo o San Juan de Letrán según lo que pida. ' +
+        'Nunca inventes: si la descripción es demasiado vaga para identificar un lugar concreto, responde con "name":"" y explica en extraction_summary qué falta por aclarar. ' +
+        'Usa la búsqueda de Google para coordenadas exactas, precios y horarios vigentes. ' +
+        'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera.\n\n' +
+        'Responde ÚNICAMENTE con un objeto JSON (sin markdown) con esta forma exacta:\n' +
+        '{"name":"","city":"","country":"","category":"' + CATEGORY_MENU + '",' +
+        '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
+        '"reservation_required":false,"reservation_notes":"",' +
+        '"extraction_summary":""}\n\n' +
+        'Reglas: lat/lng con 5+ decimales. description en español, 2-4 frases. NO decidas "imperdible" ni asignes días. ' +
+        'Si no hay dato confiable de precio u horario, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
+        'extraction_summary: 1 frase; si la descripción pide VARIOS lugares (ej. "los 13 obeliscos de Roma"), dilo aquí y devuelve el principal.'
+      : 'Analiza el contenido (un enlace, texto o captura de pantalla sobre un lugar de interés para un viaje) ' +
+        'e identifica el LUGAR TURÍSTICO principal que representa. Puede ser de YouTube, Instagram, TikTok, un blog o un artículo. ' +
+        'Usa la búsqueda de Google para completar datos reales: coordenadas exactas, precios y horarios vigentes. ' +
+        'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera de esos destinos.\n\n' +
+        'REGLA CRÍTICA contra inventar: si solo tienes el enlace pero NO el contenido real (no venió texto, título ni imagen del post), ' +
+        'NO supongas ni deduzcas el lugar — responde con "name":"" y en extraction_summary escribe que no se pudo acceder al contenido del enlace. ' +
+        'Inventar un lugar plausible (ej. deducir "Coliseo" por ser un reel de Roma) es un error grave.\n\n' +
+        'Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin explicación) con esta forma exacta:\n' +
+        '{"name":"","city":"","country":"","category":"' + CATEGORY_MENU + '",' +
+        '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
+        '"reservation_required":false,"reservation_notes":"",' +
+        '"extraction_summary":""}\n\n' +
+        'Reglas: lat/lng numéricos con 5+ decimales del punto exacto. description en español, 2-4 frases, mención breve de por qué es interesante (si viene de un video/red social, integre ese contexto). ' +
+        'NO decidas si el lugar es "imperdible": eso lo decide la familia en la app. NO asignes días del itinerario. ' +
+        'opening_hours y price con lo que encuentres en la web; si no hay dato confiable, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
+        'extraction_summary: 1 frase sobre qué era el recurso original; si el contenido menciona VARIOS lugares independientes, dilo aquí.'
 
   const parts = []
   if (imageBase64) {
     parts.push({ inlineData: { mimeType: imageMime || 'image/jpeg', data: imageBase64 } })
   }
-  parts.push({ text: text || 'Extrae el lugar principal de esta captura/página.' })
+  parts.push({ text: text || (freeform ? '' : 'Extrae el lugar principal de esta captura/página.') })
 
   // Si pegaron un enlace, intentar leer su contenido real y adjuntarlo
   const urlMatch = (text || '').match(/https?:\/\/[^\s]+/)
@@ -301,6 +324,36 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
 // Devuelve { places: [...], sources }. Con 1 solo lugar funciona igual que
 // la extracción simple.
 export async function extractMultiplePlacesFromContent({ text, imageBase64, imageMime }) {
+  const freeform = isFreeformRequest({ text, imageBase64 })
+
+  // Descripción libre con plural explícito ("los 13 obeliscos de Roma"):
+  // una sola llamada CON búsqueda que devuelve la lista completa.
+  const explicitMulti = freeform && /\b\d+\b/.test(text)
+  if (explicitMulti) {
+    const n = Math.min(parseInt(text.match(/\b\d+\b/)[0], 10) || 15, 15)
+    const system =
+      `El usuario pide ${n > 1 ? `alrededor de ${n}` : 'varios'} lugares con la descripción: "${text}". ` +
+      'BÚSCALOS en Google y devuelve UNA lista JSON con esos lugares reales (los más conocidos/turísticos que coincidan). ' +
+      'Nunca inventes: si no existen tantos lugares como se piden, devuelve solo los que existan de verdad. ' +
+      'Cada lugar con todos sus datos reales: coordenadas exactas (5+ decimales), precio y horario si existen. ' +
+      'NO decidas "imperdible" ni asignes días del itinerario.\n' +
+      'Responde ÚNICAMENTE con JSON: {"places":[{"name":"","city":"","country":"","category":"' + CATEGORY_MENU + '","lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"","reservation_required":false,"reservation_notes":"","extraction_summary":""}]}\n' +
+      'extraction_summary: 1 frase sobre la descripción original del usuario.'
+    try {
+      const { text: raw, sources } = await callGemini(
+        [{ role: 'user', parts: [{ text }] }],
+        { system, useSearch: true },
+      )
+      const m = raw.match(/\{[\s\S]*\}/)
+      if (m) {
+        const parsed = JSON.parse(m[0])
+        if (Array.isArray(parsed.places) && parsed.places.length) {
+          return { places: parsed.places.slice(0, 15).map(toPlace), sources }
+        }
+      }
+    } catch { /* cae al flujo simple de abajo */ }
+  }
+
   const first = await extractPlaceFromContent({ text, imageBase64, imageMime })
   const places = [first.place]
 
@@ -314,7 +367,7 @@ export async function extractMultiplePlacesFromContent({ text, imageBase64, imag
     'Analiza el contenido (enlace, texto o captura) y extrae TODOS los lugares turísticos INDEPENDIENTES que mencione, en orden de aparición. ' +
     'Reglas: solo lugares con nombre concreto y verificable (nunca inventar: si no puedes acceder al contenido, lista solo lo que veas). ' +
     'Descarta menciones genéricas ("el centro", "la catedral" sin ciudad). Cada lugar es independiente aunque estén cerca. ' +
-    'Responde ÚNICAMENTE con JSON: {"places":[{"name":"","city":"","country":"","category":"museo|iglesia|monumento|ruina_arqueologica|parque|paseo_barrio|comida|otro","lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"","reservation_required":false,"reservation_notes":"","extraction_summary":""}]} ' +
+    'Responde ÚNICAMENTE con JSON: {"places":[{"name":"","city":"","country":"","category":"' + CATEGORY_MENU + '","lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"","reservation_required":false,"reservation_notes":"","extraction_summary":""}]} ' +
     'Incluye SIEMPRE al menos el lugar principal; máximo 15 lugares. lat/lng con 5+ decimales.'
 
   const parts = []

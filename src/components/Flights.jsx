@@ -57,7 +57,7 @@ export default function Flights({ whoAmI }) {
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">
       <h2 className="text-lg font-bold text-slate-900 mb-0.5">🚄 Transporte</h2>
       <p className="text-xs text-slate-500 mb-3">
-        Vuelos, trenes y buses · horas editables por todos{configured ? '' : ' · modo demo (no se guardan)'} · sincroniza al instante
+        Toca ✏️ para editar horas{configured ? '' : ' · demo'}
       </p>
 
       {FLIGHT_LEGS.map((leg) => {

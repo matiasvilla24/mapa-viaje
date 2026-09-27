@@ -1,17 +1,14 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
-import { CATEGORIES, PEOPLE, personColor } from '../constants'
+import { CATEGORIES } from '../constants'
 
 const EMOJI = {
   museo: '🏛️', iglesia: '⛪', monumento: '🗿', ruina_arqueologica: '🏚️',
-  parque: '🌳', paseo_barrio: '🚶', comida: '🍽️', otro: '📍',
+  parque: '🌳', comida: '🍽️', otro: '📍',
 }
 
 function makeIcon(place, dimmed) {
   const color = CATEGORIES[place.category]?.color || CATEGORIES.otro.color
-  // Cuando ya haya lugares agregados por la familia, el borde mostrará
-  // el color de quien lo agregó (azul/amarillo/morado/rojo).
-  const person = place.added_by_tag && place.added_by !== 'Precarga' ? personColor(place.added_by_tag) : '#ffffff'
   const emoji = place.visited ? '✅' : (EMOJI[place.category] || EMOJI.otro)
   const size = place.must_see ? 38 : 32
   return L.divIcon({
@@ -20,7 +17,7 @@ function makeIcon(place, dimmed) {
       width:${size}px;height:${size}px;border-radius:50% 50% 50% 4px;
       transform:rotate(-45deg);
       background:${color};
-      border:2.5px solid ${person};
+      border:2.5px solid white;
       box-shadow:0 2px 6px rgba(0,0,0,.4), 0 0 0 ${place.must_see ? 3 : 0}px ${color}55;
       display:flex;align-items:center;justify-content:center;
       opacity:${dimmed ? 0.25 : (place.visited ? 0.55 : 1)};
@@ -128,22 +125,12 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
     <>
       <div ref={mapRef} className="h-full w-full" />
       {/* Leyenda */}
-      <div className="absolute bottom-3 left-3 z-[500] bg-white/95 backdrop-blur rounded-xl shadow-lg px-3 py-2 text-[11px] leading-relaxed pointer-events-none max-w-[210px] text-slate-600">
-        <div className="font-bold text-slate-700 mb-1">Categorías</div>
+      <div className="absolute bottom-3 left-3 z-[500] bg-white/95 backdrop-blur rounded-xl shadow-lg px-3 py-2 text-[11px] leading-relaxed pointer-events-none max-w-[180px] text-slate-600">
         <div className="grid grid-cols-2 gap-x-2">
           {Object.entries(CATEGORIES).map(([key, c]) => (
             <div key={key} className="flex items-center gap-1.5 text-slate-600">
               <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: c.color }} />
               {c.label}
-            </div>
-          ))}
-        </div>
-        <div className="font-bold text-slate-700 mt-1.5 mb-1">Quién lo agregó</div>
-        <div className="grid grid-cols-2 gap-x-2">
-          {PEOPLE.map((p) => (
-            <div key={p.key} className="flex items-center gap-1.5 text-slate-600">
-              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: p.color }} />
-              {p.label}
             </div>
           ))}
         </div>

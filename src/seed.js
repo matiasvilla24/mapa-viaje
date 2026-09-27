@@ -214,7 +214,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Piazzale Michelangelo', city: 'Florencia', country: 'Italia',
-    lat: 43.7623, lng: 11.2646, category: 'paseo_barrio',
+    lat: 43.7623, lng: 11.2646, category: 'otro',
     description: 'La terraza panorámica del siglo XIX sobre Florencia: vista de postal del Duomo, Palazzo Vecchio, el Arno y las colinas de Fiesole. Copia en bronce del David en el centro; al lado, la iglesia románica de San Miniato al Monte.',
     highlights: 'Panorama 180°, David de bronce, escalinata, San Miniato al Monte y su cementerio, atardeceres legendarios.',
     opening_hours: 'Siempre abierto (es una plaza).',
@@ -255,7 +255,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Canal Grande en vaporetto (línea 1)', city: 'Venecia', country: 'Italia',
-    lat: 45.4380, lng: 12.3358, category: 'paseo_barrio',
+    lat: 45.4380, lng: 12.3358, category: 'otro',
     description: 'Recorrido en vaporetto por la "S" del Gran Canal, la avenida acuática flanqueada por palacios del Renacimiento: de Piazzale Roma a San Marco, pasando por Rialto, el Puente de la Academia y la Salute.',
     highlights: 'Palacios (Ca\' d\'Oro, Ca\' Rezzonico, Palazzo Grassi), Puente de Rialto, Punta della Dogana, Santa Maria della Salute, giao del ferrocarril.',
     opening_hours: 'Línea 1: cada 12 min aprox, 5:00–23:30. Verificar antes del viaje.',
@@ -268,7 +268,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Burano', city: 'Venecia', country: 'Italia',
-    lat: 45.4856, lng: 12.4167, category: 'paseo_barrio',
+    lat: 45.4856, lng: 12.4167, category: 'otro',
     description: 'Isla de la laguna famosa por sus casas de colores intensos, el encaje de bolillos y la inclinada torre campanile. Colores regulados por decreto; el ambiente de pesca y encaje es único.',
     highlights: 'Casas multicolores (la casa de Bepi Suà), torre inclinada de San Martino, Museo del Merletto, pescado fresco en trattorias, canal principal.',
     opening_hours: 'Siempre accesible (vaporetto línea 12 desde Fondamente Nove, ~42 min).',
@@ -599,7 +599,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Rue Crémieux', city: 'París', country: 'Francia',
-    lat: 48.8476, lng: 2.3690, category: 'paseo_barrio',
+    lat: 48.8476, lng: 2.3690, category: 'otro',
     description: 'Callejón peatonal del siglo XIX cerca de la Gare de Lyon: casitas adosadas de colores pastel con nombres poéticos pintados en las fachadas. La "Portofino de París" para fotos.',
     highlights: 'Fachadas rosa, azul y verde, nombres de las casas pintados, adoquines, plantas.',
     opening_hours: 'Siempre accesible (peatonal).',
@@ -625,7 +625,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Palais-Royal', city: 'París', country: 'Francia',
-    lat: 48.8637, lng: 2.3370, category: 'paseo_barrio',
+    lat: 48.8637, lng: 2.3370, category: 'otro',
     description: 'Palacio con jardín público y arcadas del siglo XVIII junto al Louvre: las Columnas de Buren (rayas blancas y negras) en el patio, las boutiques de las Galeries de Valois y los jardines con rosales y bancos.',
     highlights: 'Colonnes de Buren (Les Deux Plateaux), jardín tranquilo con fuentes, Galerie de Valois y de Montpensier, Comédie-Française, sculptural Fontaine Molière cerca.',
     opening_hours: 'Jardín ~7:30–anochecer; arcadas en horario comercial.',
@@ -664,7 +664,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Canal Saint-Martin', city: 'París', country: 'Francia',
-    lat: 48.8709, lng: 2.3661, category: 'paseo_barrio',
+    lat: 48.8709, lng: 2.3661, category: 'otro',
     description: 'El canal (1825) con esclusas y puentes giratorios que une el Bassin de la Villette con el Sena: orillas donde parisienses jóvenes hacen picnic, boutiques vintage, cafés especializados y el Hôtel du Nord de la película.',
     highlights: 'Esclusas y puentes giratorios, Bassin de la Villemin, Quai de Valmy, cafés (Le Comptoir Général), tiendas vintage, cruceros cortos por las esclusas.',
     opening_hours: 'Orillas siempre accesibles.',
@@ -677,7 +677,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Barrio Latino', city: 'París', country: 'Francia',
-    lat: 48.8470, lng: 2.3430, category: 'paseo_barrio',
+    lat: 48.8470, lng: 2.3430, category: 'otro',
     description: 'El barrio universitario desde la Edad Media: Sorbona, librerías, cafés históricos (Les Deux Magots, Café de Flore), el Panteón, las termas de Cluny y las estrechas Rue de la Huchette y Mouffetard.',
     highlights: 'Panteón (tumbas de Voltaire, Hugo, Curie), Shakespeare and Company, Rue Mouffetard, Jardines del Luxemburgo al borde, Arenas de Lutecia, Musée de Cluny.',
     opening_hours: 'Siempre accesible (barrio).',
@@ -703,7 +703,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Arte urbano de Belleville', city: 'París', country: 'Francia',
-    lat: 48.8722, lng: 2.3830, category: 'paseo_barrio',
+    lat: 48.8722, lng: 2.3830, category: 'otro',
     description: 'El barrio de inmigración y contracultura convertido en capital del street art parisino: murales gigantes, collages y graffiti por Rue Denoyez, el Parc de Belleville y las escaleras del Rue du Transvaal.',
     highlights: 'Rue Denoyez (galería al aire libre), murales de la Rue de Belleville, Parc de Belleville con vista de la Torre Eiffel, talleres abiertos, áticos chinos y norteafricanos.',
     opening_hours: 'Siempre accesible (barrio).',
@@ -716,7 +716,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Murales del distrito 13', city: 'París', country: 'Francia',
-    lat: 48.8280, lng: 2.3720, category: 'paseo_barrio',
+    lat: 48.8280, lng: 2.3720, category: 'otro',
     description: 'El Boulevard Vincent Auriol y alrededores, galería de street art a cielo abierto del 13º: murales de Inti, Jaz, D*Face, Seth, Obey y decenas más, renovados cada año por la galería Itinerrance.',
     highlights: 'Mural de Inti (Semíramis), D*Face, Seth (niños), Obey, murales de la Rue Jeanne d\'Arc, boulevard Vincent Auriol.',
     opening_hours: 'Siempre accesible (calles).',
@@ -729,7 +729,7 @@ export const SEED_PLACES = [
   },
   {
     name: 'Le Marais', city: 'París', country: 'Francia',
-    lat: 48.8590, lng: 2.3600, category: 'paseo_barrio',
+    lat: 48.8590, lng: 2.3600, category: 'otro',
     description: 'El barrio medieval de moda: hoteles particulares, Place des Vosges (la plaza más antigua de París), boutiques, falafel en Rue des Rosiers, el Musée Picasso y la Place de la République cerca.',
     highlights: 'Place des Vosges, Rue des Rosiers (Judería), Marché des Enfants Rouges (mercado más antiguo), Musée Picasso, Hôtel de Sully, boutiques vintage.',
     opening_hours: 'Siempre accesible (barrio).',

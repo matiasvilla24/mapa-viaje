@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { db, contributionsDb, configured, onPendingChange } from './supabaseClient'
+import { onJobChange } from './aiJob'
 import QuickAdd from './components/QuickAdd'
 import { CATEGORIES, CATEGORY_KEYS, PEOPLE, ITINERARY, fmtDate } from './constants'
 import MapView from './components/MapView'
@@ -22,6 +23,10 @@ export default function App() {
   const [editing, setEditing] = useState(null)   // null | 'new' | place
   const [quickAdd, setQuickAdd] = useState(false)
   const [askAI, setAskAI] = useState(false)
+  const [jobResult, setJobResult] = useState(false)
+
+  // Resultado del Quick Add en segundo plano: badge en el botón ✨
+  useEffect(() => onJobChange(({ running, result }) => setJobResult(Boolean(result) && !running)), [])
 
   // Operaciones pendientes de sincronizar (hechas sin conexión)
   const [pending, setPending] = useState(0)
@@ -134,7 +139,7 @@ export default function App() {
       {/* ── Cabecera ── */}
       <header className="flex-shrink-0 bg-slate-900 text-white px-4 py-2.5 flex items-center gap-2.5 z-20 shadow-md">
         <div className="flex-1 min-w-0">
-          <h1 className="font-bold leading-tight text-[15px]">🗺️ Mapa del viaje</h1>
+          <h1 className="font-bold leading-tight text-[15px]">🗺️ dic 25 – ene 10</h1>
           {configured && pending > 0 && (
             <p className="text-[11px] text-amber-400 leading-tight">⏳ {pending} pendiente{pending !== 1 ? 's' : ''} de sincronizar</p>
           )}
@@ -149,11 +154,14 @@ export default function App() {
         </button>
         <button
           onClick={() => { setQuickAdd(true); cancelPick() }}
-          className="flex-shrink-0 bg-violet-500 hover:bg-violet-400 active:bg-violet-600 text-white font-bold text-base w-10 h-10 rounded-xl transition-colors shadow"
-          title="Agregar desde un link, texto o captura (con IA)"
+          className={`relative flex-shrink-0 font-bold text-base w-10 h-10 rounded-xl transition-colors shadow ${
+            jobResult ? 'bg-emerald-500 hover:bg-emerald-400 animate-bounce' : 'bg-violet-500 hover:bg-violet-400 active:bg-violet-600'
+          } text-white`}
+          title={jobResult ? 'Resultado listo — tócalo para revisar' : 'Agregar con IA'}
           aria-label="Quick Add con IA"
         >
           ✨
+          {jobResult && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white" />}
         </button>
         <button
           onClick={() => { setEditing('new'); cancelPick() }}
@@ -177,7 +185,7 @@ export default function App() {
           className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
         >
           {cities.map((c) => (
-            <option key={c} value={c}>{c === 'todas' ? '🌍 Todas las ciudades' : c}</option>
+            <option key={c} value={c}>{c === 'todas' ? '🌍 Ciudades' : c}</option>
           ))}
         </select>
         <select
@@ -185,7 +193,7 @@ export default function App() {
           onChange={(e) => setCatFilter(e.target.value)}
           className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
         >
-          <option value="todas">🎨 Todas las categorías</option>
+          <option value="todas">🎨 Categorías</option>
           {CATEGORY_KEYS.map((k) => (
             <option key={k} value={k}>{CATEGORIES[k].label}</option>
           ))}
@@ -195,7 +203,7 @@ export default function App() {
           onChange={(e) => setPersonFilter(e.target.value)}
           className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
         >
-          <option value="todos">👪 Toda la familia</option>
+          <option value="todos">👪 Familia</option>
           {PEOPLE.map((p) => (
             <option key={p.key} value={p.key}>{p.label}</option>
           ))}

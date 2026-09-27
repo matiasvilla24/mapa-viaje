@@ -101,7 +101,7 @@ export default function Budget() {
         </button>
       </div>
       <p className="text-xs text-slate-500 mb-3">
-        Estimado vs. gasto real{configured ? '' : ' · modo demo (no se guardan)'} · sincronizado al instante
+        {configured ? 'Estimado vs. real · sincronizado' : 'modo demo'}
       </p>
 
       {/* Resumen */}

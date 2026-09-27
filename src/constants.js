@@ -1,13 +1,12 @@
 // Categorías de lugares (enum del modelo de datos)
 export const CATEGORIES = {
-  museo:               { label: 'Museo',              color: '#7c3aed' },
-  iglesia:             { label: 'Iglesia',            color: '#d97706' },
-  monumento:           { label: 'Monumento',          color: '#dc2626' },
-  ruina_arqueologica:  { label: 'Ruina arqueológica', color: '#78716c' },
-  parque:              { label: 'Parque',             color: '#16a34a' },
-  paseo_barrio:        { label: 'Paseo / barrio',     color: '#0d9488' },
-  comida:              { label: 'Comida',             color: '#db2777' },
-  otro:                { label: 'Otro',               color: '#2563eb' },
+  museo:               { label: 'Museo',    color: '#7c3aed' },
+  iglesia:             { label: 'Iglesia',  color: '#d97706' },
+  monumento:           { label: 'Monumento', color: '#dc2626' },
+  ruina_arqueologica:  { label: 'Ruina',    color: '#78716c' },
+  parque:              { label: 'Parque',   color: '#16a34a' },
+  comida:              { label: 'Comida',   color: '#db2777' },
+  otro:                { label: 'Otro',     color: '#2563eb' },
 }
 
 export const CATEGORY_KEYS = Object.keys(CATEGORIES)

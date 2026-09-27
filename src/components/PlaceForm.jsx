@@ -22,8 +22,8 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     assigned_date: initial?.assigned_date || '',
     must_see: initial?.must_see || false,
     notes: initial?.notes || '',
-    added_by: initial?.added_by || '',
-    added_by_tag: initial?.added_by_tag || '',
+    added_by: initial?.added_by || 'Mati',
+    added_by_tag: initial?.added_by_tag || 'mati',
     interest_tags: initial?.interest_tags || [],
   })
   const [picking, setPicking] = useState(false)

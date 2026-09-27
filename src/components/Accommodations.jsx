@@ -82,6 +82,7 @@ export default function Accommodations() {
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">
       <div className="flex items-center justify-between mb-0.5">
         <h2 className="text-lg font-bold text-slate-900">🏨 Alojamientos</h2>
+        {/* (sin subtítulo: el botón Agregar se explica solo) */}
         <button
           onClick={() => { setShowForm(!showForm); if (!showForm) { setForm(emptyForm); setEditingId(null) } }}
           className="text-xs font-bold px-3 py-1.5 rounded-lg bg-sky-500 text-white hover:bg-sky-400 transition-colors"
@@ -90,7 +91,7 @@ export default function Accommodations() {
         </button>
       </div>
       <p className="text-xs text-slate-500 mb-3">
-        Reservas del viaje{configured ? '' : ' · modo demo (no se guardan)'} · sincronizado al instante
+        {configured ? 'Sincronizado al instante' : 'modo demo'}
       </p>
 
       {showForm && (

@@ -140,9 +140,9 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
 
   return (
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">
-      <h2 className="text-lg font-bold text-slate-900 mb-0.5">Agenda del viaje</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-0.5">📅 Agenda</h2>
       <p className="text-xs text-slate-500 mb-3">
-        Medellín → Europa → Medellín · dic 25 – ene 10{configured ? '' : ' · modo demo'}
+        {unassigned.length} sin día{configured ? '' : ' · demo'}
       </p>
 
       {/* Ruta del viaje (antes pestaña Ruta) */}

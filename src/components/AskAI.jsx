@@ -1,44 +1,26 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { askAboutTrip, aiConfigured } from '../aiClient'
+import { useChat } from '../aiChats'
 import { useSheetDismiss, SheetClose } from './sheetDismiss'
 
-// Chat libre con la IA sobre el viaje (botón ❓ del header):
-// precios, horarios, transporte, clima, documentación, lo que sea.
+// Chat libre con la IA sobre el viaje (botón ❓):
+// el historial persiste y la respuesta sigue su curso aunque se cierre el
+// modal (al reabrir, la conversación completa sigue ahí).
 export default function AskAI({ onClose, places = [] }) {
-  const [messages, setMessages] = useState([]) // { role: 'user'|'model', text, sources }
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const endRef = useRef(null)
-  const sheet = useSheetDismiss(onClose)
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
-
   // Resumen corto del mapa para dar contexto a la IA (máx ~60 lugares)
   const tripSummary = places
     .slice(0, 60)
     .map((p) => `- ${p.name}${p.city ? ` (${p.city})` : ''}${p.price ? ` · ${p.price}` : ''}`)
     .join('\n')
 
-  const ask = async (q) => {
-    const question = q.trim()
-    if (!question || loading) return
-    setInput('')
-    setError(null)
-    const userMsg = { role: 'user', text: question }
-    setMessages((m) => [...m, userMsg])
-    setLoading(true)
-    try {
-      const history = messages.map(({ role, text }) => ({ role, text }))
-      const { text, sources } = await askAboutTrip(question, history, tripSummary)
-      setMessages((m) => [...m, { role: 'model', text, sources }])
-    } catch (e) {
-      setError(e.message)
-      setMessages((m) => m.filter((x) => x !== userMsg))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const chat = useChat('general', (q, history) => askAboutTrip(q, history, tripSummary))
+  const messages = chat.messages
+  const loading = chat.loading
+  const error = chat.error
+  const endRef = useRef(null)
+  const sheet = useSheetDismiss(onClose)
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length, loading])
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
@@ -56,8 +38,17 @@ export default function AskAI({ onClose, places = [] }) {
           <span className="text-xl">❓</span>
           <div className="flex-1">
             <h2 className="text-lg font-bold text-slate-900 leading-tight">Pregunta a la IA</h2>
-            <p className="text-[11px] text-slate-500">cualquier duda del viaje: precios, horarios, transporte, clima…</p>
+            <p className="text-[11px] text-slate-500">precios, horarios, transporte, clima… (se cierra sin perder la conversación)</p>
           </div>
+          {messages.length > 0 && (
+            <button
+              onClick={chat.clear}
+              className="flex-shrink-0 text-[11px] font-semibold text-slate-400 hover:text-red-500 px-2 py-1 rounded-lg"
+              title="Borrar este historial"
+            >
+              🧹
+            </button>
+          )}
           <SheetClose onClick={onClose} />
         </div>
 
@@ -81,7 +72,7 @@ export default function AskAI({ onClose, places = [] }) {
                     ].map((q) => (
                       <button
                         key={q}
-                        onClick={() => ask(q)}
+                        onClick={() => chat.ask(q)}
                         className="text-[11px] bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-full px-2.5 py-1.5"
                       >
                         {q}
@@ -122,18 +113,18 @@ export default function AskAI({ onClose, places = [] }) {
 
             {/* Entrada */}
             <form
-              onSubmit={(e) => { e.preventDefault(); ask(input) }}
+              onSubmit={(e) => { e.preventDefault(); const el = e.target.elements.q; chat.ask(el.value); el.value = '' }}
               className="flex-shrink-0 p-3 border-t border-slate-100 flex gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
             >
               <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
+                name="q"
+                defaultValue=""
                 placeholder="Escribe tu pregunta…"
                 className="flex-1 min-w-0 text-[13px] px-3 py-2.5 rounded-xl border border-slate-300 outline-none focus:border-violet-500"
               />
               <button
                 type="submit"
-                disabled={loading || !input.trim()}
+                disabled={loading}
                 className="px-4 rounded-xl bg-violet-600 text-white text-sm font-bold disabled:opacity-40 hover:bg-violet-500"
                 aria-label="Preguntar"
               >

@@ -1,36 +1,17 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { askAboutPlace, aiConfigured } from '../aiClient'
+import { useChat } from '../aiChats'
 
-// Sección "AI Overview": preguntas sobre el lugar respondidas con
-// búsqueda web de Google y citas con enlaces a las fuentes.
+// Sección "AI Overview" del modal de un lugar: chat con historial persistente
+// y respuestas que siguen su curso aunque se cierre el modal.
 export default function AiOverview({ place }) {
-  const [messages, setMessages] = useState([]) // { role: 'user'|'model', text, sources }
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const chat = useChat('place-' + place.id, (q, history) => askAboutPlace(place, q, history))
+  const messages = chat.messages
+  const loading = chat.loading
+  const error = chat.error
   const endRef = useRef(null)
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
-
-  const ask = async (q) => {
-    const question = q.trim()
-    if (!question || loading) return
-    setInput('')
-    setError(null)
-    const userMsg = { role: 'user', text: question }
-    setMessages((m) => [...m, userMsg])
-    setLoading(true)
-    try {
-      const history = messages.map(({ role, text }) => ({ role, text }))
-      const { text, sources } = await askAboutPlace(place, question, history)
-      setMessages((m) => [...m, { role: 'model', text, sources }])
-    } catch (e) {
-      setError(e.message)
-      setMessages((m) => m.filter((x) => x !== userMsg))
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length, loading])
 
   if (!aiConfigured) {
     return (
@@ -44,11 +25,19 @@ export default function AiOverview({ place }) {
     <div className="rounded-xl border border-violet-200 bg-violet-50/60 overflow-hidden">
       <div className="px-3 py-2 flex items-center gap-2 bg-violet-100/70">
         <span className="text-sm">🤖</span>
-        <h3 className="text-[12px] font-bold text-violet-900">AI Overview</h3>
-        <span className="text-[10px] text-violet-500">pregúntale lo que quieras · responde con fuentes</span>
+        <h3 className="text-[12px] font-bold text-violet-900 flex-1">AI Overview</h3>
+        {messages.length > 0 && (
+          <button
+            onClick={chat.clear}
+            className="text-[11px] text-violet-400 hover:text-red-500 px-1.5 py-0.5 rounded"
+            title="Borrar este historial"
+          >
+            🧹
+          </button>
+        )}
       </div>
 
-      {/* Conversación */}
+      {/* Conversación (historial persistente de este lugar) */}
       {messages.length > 0 && (
         <div className="px-3 py-2 space-y-2.5 max-h-72 overflow-y-auto thin-scroll">
           {messages.map((m, i) => (
@@ -89,7 +78,7 @@ export default function AiOverview({ place }) {
           {['¿Cuánto cuesta entrar y hay que reservar?', '¿Qué no me puedo perder?', '¿Cómo llegar desde el centro?'].map((q) => (
             <button
               key={q}
-              onClick={() => ask(q)}
+              onClick={() => chat.ask(q)}
               className="text-[11px] bg-white hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-full px-2.5 py-1"
             >
               {q}
@@ -102,18 +91,18 @@ export default function AiOverview({ place }) {
 
       {/* Entrada */}
       <form
-        onSubmit={(e) => { e.preventDefault(); ask(input) }}
+        onSubmit={(e) => { e.preventDefault(); const el = e.target.elements.q; chat.ask(el.value); el.value = '' }}
         className="p-2.5 flex gap-2"
       >
         <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          name="q"
+          defaultValue=""
           placeholder={`Pregunta sobre ${place.name}…`}
           className="flex-1 min-w-0 text-[13px] px-3 py-2 rounded-lg border border-violet-200 bg-white outline-none focus:border-violet-400"
         />
         <button
           type="submit"
-          disabled={loading || !input.trim()}
+          disabled={loading}
           className="px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-bold disabled:opacity-40 hover:bg-violet-500"
           aria-label="Preguntar"
         >

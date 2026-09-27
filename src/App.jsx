@@ -237,14 +237,14 @@ export default function App() {
           ['agenda', '📅', 'Agenda'],
           ['vuelos', '🚄', 'Transporte'],
           ['alojamientos', '🏨', 'Alojamientos'],
-          ['presupuesto', '$$', '$$'],
+          ['presupuesto', '💰', 'Presupuesto'],
           ['ruta', '🧭', 'Ruta'],
         ].map(([key, icon, label]) => (
           <button
             key={key}
             onClick={() => setView(key)}
-            className={`flex-1 py-2.5 text-center transition-colors ${
-              view === key ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-700'
+            className={`flex-1 py-3 text-center transition-colors ${
+              view === key ? 'text-emerald-600 font-bold' : 'text-slate-600 hover:text-slate-800'
             }`}
           >
             <span className="block text-lg leading-none">{icon}</span>

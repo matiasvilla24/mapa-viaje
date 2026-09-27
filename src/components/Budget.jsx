@@ -92,7 +92,7 @@ export default function Budget() {
   return (
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">
       <div className="flex items-center justify-between mb-0.5">
-        <h2 className="text-lg font-bold text-slate-900">$$ Presupuesto</h2>
+        <h2 className="text-lg font-bold text-slate-900">💰 Presupuesto</h2>
         <button
           onClick={() => { setShowForm(!showForm); if (!showForm) { setForm(emptyForm); setEditingId(null) } }}
           className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-400 transition-colors"

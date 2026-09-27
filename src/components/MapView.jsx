@@ -127,7 +127,7 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
     <>
       <div ref={mapRef} className="h-full w-full" />
       {/* Leyenda */}
-      <div className="absolute bottom-3 left-3 z-[500] bg-white/95 backdrop-blur rounded-xl shadow-lg px-3 py-2 text-[11px] leading-relaxed pointer-events-none max-w-[210px]">
+      <div className="absolute bottom-3 left-3 z-[500] bg-white/95 backdrop-blur rounded-xl shadow-lg px-3 py-2 text-[11px] leading-relaxed pointer-events-none max-w-[210px] text-slate-600">
         <div className="font-bold text-slate-700 mb-1">Categorías</div>
         <div className="grid grid-cols-2 gap-x-2">
           {Object.entries(CATEGORIES).map(([key, c]) => (

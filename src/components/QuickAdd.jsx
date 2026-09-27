@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { extractMultiplePlacesFromContent, mergePlaceInfo } from '../aiClient'
 import { CATEGORIES, CATEGORY_KEYS, PEOPLE } from '../constants'
 import { db } from '../supabaseClient'
+import { useSheetDismiss, SheetClose } from './sheetDismiss'
 
 // Duplicado EXPLÍCITO: mismo nombre normalizado (sin acentos/puntuación).
 // La proximidad NO decide — lugares distintos pueden estar a 50 m (una
@@ -51,6 +52,7 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
   const [editName, setEditName] = useState(null)
   const [current, setCurrent] = useState(0)    // índice del lugar en revisión
   const fileInputRef = useRef(null)
+  const sheet = useSheetDismiss(onClose)
   const saveAuthor = (v) => { setAuthorTag(v); localStorage.setItem('mv_whoami_tag', v) }
   const authorLabel = (k) => PEOPLE.find((p) => p.key === k)?.label || ''
 
@@ -175,14 +177,19 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
       <div
         className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        {...sheet.handlers}
       >
-        <div className="p-4 pb-3 border-b border-slate-100 flex items-center gap-2">
+        {/* Grabber: arrastrar hacia abajo para cerrar (estilo iOS) */}
+        <div className="sm:hidden flex-shrink-0 flex justify-center pt-2 cursor-grab" aria-hidden="true">
+          <span className="w-10 h-1.5 rounded-full bg-slate-300" />
+        </div>
+        <div className="p-4 pt-2 pb-3 border-b border-slate-100 flex items-center gap-2">
           <span className="text-xl">✨</span>
           <div className="flex-1">
             <h2 className="text-lg font-bold text-slate-900 leading-tight">Quick Add</h2>
             <p className="text-[11px] text-slate-500">pega un link, texto o captura — la IA extrae el lugar</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none -mt-1" aria-label="Cerrar">✕</button>
+          <SheetClose onClick={onClose} />
         </div>
 
         {/* Paso 1: entrada */}

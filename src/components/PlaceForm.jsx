@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CATEGORIES, CATEGORY_KEYS, PEOPLE } from '../constants'
+import { useSheetDismiss, SheetClose } from './sheetDismiss'
 
 const input = 'w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition'
 
@@ -26,6 +27,7 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     interest_tags: initial?.interest_tags || [],
   })
   const [picking, setPicking] = useState(false)
+  const sheet = useSheetDismiss(onCancel)
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
   // Activar modo captura: el formulario se minimiza, el usuario toca el mapa y
@@ -84,12 +86,17 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
       <form
         onSubmit={submit}
         className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col"
+        {...sheet.handlers}
       >
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        {/* Grabber: arrastrar hacia abajo para cerrar (estilo iOS) */}
+        <div className="sm:hidden flex-shrink-0 flex justify-center pt-2 cursor-grab" aria-hidden="true">
+          <span className="w-10 h-1.5 rounded-full bg-slate-300" />
+        </div>
+        <div className="p-4 pt-2 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">
             {editing ? '✏️ Editar lugar' : '➕ Agregar lugar'}
           </h2>
-          <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-700 text-2xl leading-none" aria-label="Cerrar">✕</button>
+          <SheetClose onClick={onCancel} />
         </div>
 
         <div className="overflow-y-auto thin-scroll p-4 space-y-3">

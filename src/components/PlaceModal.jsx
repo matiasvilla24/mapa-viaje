@@ -3,12 +3,14 @@ import { CATEGORIES, PEOPLE, personColor, personLabel, fmtDate } from '../consta
 import { contributionsDb } from '../supabaseClient'
 import AiOverview from './AiOverview'
 import FamilyData from './FamilyData'
+import { useSheetDismiss, SheetClose } from './sheetDismiss'
 
 export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleVisited }) {
   const c = CATEGORIES[place.category] || CATEGORIES.otro
   const [tab, setTab] = useState('info') // info | familia | ai
   const [contribs, setContribs] = useState([])
   const [contribsLoaded, setContribsLoaded] = useState(false)
+  const sheet = useSheetDismiss(onClose)
 
   // Cargar contribuciones del lugar al abrir (y cuando lleguen por realtime
   // se manejan desde App; aquí refrescamos al cambiar de lugar)
@@ -26,9 +28,14 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleV
       <div
         className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        {...sheet.handlers}
       >
+        {/* Grabber: arrastrar hacia abajo para cerrar (estilo iOS) */}
+        <div className="sm:hidden flex-shrink-0 flex justify-center pt-2 cursor-grab" aria-hidden="true">
+          <span className="w-10 h-1.5 rounded-full bg-slate-300" />
+        </div>
         {/* Cabecera */}
-        <div className="p-4 pb-3 border-b border-slate-100 flex items-start gap-3">
+        <div className="p-4 pt-2.5 pb-3 border-b border-slate-100 flex items-start gap-3">
           <span
             className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
             style={{ background: c.color + '22', color: c.color }}
@@ -45,7 +52,7 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleV
               {place.assigned_date ? ` · ${fmtDate(place.assigned_date)}` : ' · sin día asignado'}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none -mt-1" aria-label="Cerrar">✕</button>
+          <SheetClose onClick={onClose} />
         </div>
 
         {/* Pestañas */}

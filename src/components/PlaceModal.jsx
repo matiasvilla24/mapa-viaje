@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CATEGORIES, fmtDate } from '../constants'
+import { CATEGORIES, PEOPLE, personColor, personLabel, fmtDate } from '../constants'
 import { contributionsDb } from '../supabaseClient'
 import AiOverview from './AiOverview'
 import FamilyData from './FamilyData'
@@ -136,6 +136,30 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleV
                   <a href={place.source_url} target="_blank" rel="noreferrer" className="text-[13px] text-blue-600 hover:underline break-all">
                     {place.source_url}
                   </a>
+                </section>
+              )}
+              {((Array.isArray(place.interest_tags) && place.interest_tags.length) || place.added_by_tag) && (
+                <section>
+                  <h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Familia</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {place.added_by_tag && (
+                      <span
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white"
+                        style={{ background: personColor(place.added_by_tag) }}
+                      >
+                        ● Agregó {personLabel(place.added_by_tag)}
+                      </span>
+                    )}
+                    {(place.interest_tags || []).map((k) => (
+                      <span
+                        key={k}
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+                        style={{ color: personColor(k), borderColor: personColor(k), background: personColor(k) + '15' }}
+                      >
+                        ● Interesa a {personLabel(k)}
+                      </span>
+                    ))}
+                  </div>
                 </section>
               )}
               <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-100">

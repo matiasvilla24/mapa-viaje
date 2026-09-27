@@ -365,6 +365,76 @@ export const contributionsDb = {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Db genérica para tablas simples (accommodations, budget_items, day_notes)
+// con realtime y modo demo en memoria.
+// ─────────────────────────────────────────────────────────────
+function makeSimpleDb(tableName, { orderBy = 'created_at' } = {}) {
+  let demoRows = []
+  const handlers = new Set()
+
+  const api = {
+    async list() {
+      if (!configured) return demoRows.map((r) => ({ ...r }))
+      let q = supabase.from(tableName).select('*')
+      if (orderBy) q = q.order(orderBy, { ascending: true })
+      const { data, error } = await q
+      if (error) throw error
+      return data ?? []
+    },
+
+    async save(row) {
+      const withTs = { ...row, updated_at: new Date().toISOString() }
+      if (!configured) {
+        const idx = demoRows.findIndex((r) => r.id === row.id)
+        if (idx >= 0) demoRows[idx] = { ...demoRows[idx], ...withTs }
+        else demoRows.push({ ...withTs, id: row.id || crypto.randomUUID(), created_at: new Date().toISOString() })
+        handlers.forEach((h) => h(demoRows[idx >= 0 ? idx : demoRows.length - 1]))
+        return { ...demoRows[idx >= 0 ? idx : demoRows.length - 1] }
+      }
+      const { data, error } = await supabase
+        .from(tableName)
+        .upsert(withTs)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+
+    async remove(id) {
+      if (!configured) {
+        demoRows = demoRows.filter((r) => r.id !== id)
+        return
+      }
+      const { error } = await supabase.from(tableName).delete().eq('id', id)
+      if (error) throw error
+    },
+
+    subscribe(onChange) {
+      if (!configured) {
+        handlers.add(onChange)
+        return () => handlers.delete(onChange)
+      }
+      const channel = supabase
+        .channel(`${tableName}-changes-${crypto.randomUUID()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: tableName },
+          (payload) => {
+            if (payload.new) onChange(payload.new)
+          },
+        )
+        .subscribe()
+      return () => { supabase.removeChannel(channel) }
+    },
+  }
+  return api
+}
+
+export const accommodationsDb = makeSimpleDb('accommodations')
+export const budgetDb = makeSimpleDb('budget_items')
+export const dayNotesDb = makeSimpleDb('day_notes', { orderBy: null })
+
+// ─────────────────────────────────────────────────────────────
 // Tabla flights: horas editables de los tramos del itinerario
 // (mismo patrón: upsert con realtime; sin cola offline porque los
 // tramos son fijos y siempre existen en la base)

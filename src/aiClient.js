@@ -194,11 +194,12 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
     'Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin explicación) con esta forma exacta:\n' +
     '{"name":"","city":"","country":"","category":"museo|iglesia|monumento|ruina_arqueologica|parque|paseo_barrio|comida|otro",' +
     '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
-    '"reservation_required":false,"reservation_notes":"","must_see":false,' +
-    '"assigned_date":null,"extraction_summary":""}\n\n' +
+    '"reservation_required":false,"reservation_notes":"",' +
+    '"extraction_summary":""}\n\n' +
     'Reglas: lat/lng numéricos con 5+ decimales del punto exacto. description en español, 2-4 frases, mención breve de por qué es interesante (si viene de un video/red social, integre ese contexto). ' +
-    'assigned_date: "YYYY-MM-DD" SOLO si el itinerario arriba coincide claramente; si no, null. opening_hours y price con lo que encuentres en la web; si no hay dato confiable, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
-    'extraction_summary: 1 frase sobre qué era el recurso original.'
+    'NO decidas si el lugar es "imperdible": eso lo decide la familia en la app. NO asignes días del itinerario. ' +
+    'opening_hours y price con lo que encuentres en la web; si no hay dato confiable, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
+    'extraction_summary: 1 frase sobre qué era el recurso original; si el contenido menciona VARIOS lugares independientes, dilo aquí.'
 
   const parts = []
   if (imageBase64) {
@@ -251,24 +252,72 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
         : 'La IA no identificó un lugar claro en el contenido. Prueba con más contexto.',
     )
   }
-  return {
-    place: {
-      name: parsed.name || '',
-      city: parsed.city || '',
-      country: parsed.country || '',
-      category: QUICK_ADD_CATEGORIES.includes(parsed.category) ? parsed.category : 'otro',
-      lat: Number(parsed.lat) || null,
-      lng: Number(parsed.lng) || null,
-      description: parsed.description || '',
-      highlights: parsed.highlights || '',
-      opening_hours: parsed.opening_hours || '',
-      price: parsed.price || '',
-      reservation_required: Boolean(parsed.reservation_required),
-      reservation_notes: parsed.reservation_notes || '',
-      must_see: Boolean(parsed.must_see),
-      assigned_date: parsed.assigned_date || null,
-      extraction_summary: parsed.extraction_summary || '',
-    },
-    sources,
+  // REGLA DE LA FAMILIA: la IA NUNCA decide "imperdible" — solo el usuario
+  // marca esa casilla, sin importar lo que diga el link o la captura.
+  const toPlace = (p) => ({
+    name: p.name || '',
+    city: p.city || '',
+    country: p.country || '',
+    category: QUICK_ADD_CATEGORIES.includes(p.category) ? p.category : 'otro',
+    lat: Number(p.lat) || null,
+    lng: Number(p.lng) || null,
+    description: p.description || '',
+    highlights: p.highlights || '',
+    opening_hours: p.opening_hours || '',
+    price: p.price || '',
+    reservation_required: Boolean(p.reservation_required),
+    reservation_notes: p.reservation_notes || '',
+    must_see: false, // siempre false desde la IA
+    assigned_date: null, // itinerario liberado: la IA no asigna días
+    extraction_summary: p.extraction_summary || '',
+  })
+  return { place: toPlace(parsed), sources }
+}
+
+// ── MultiAdd: extraer VARIOS lugares independientes de un mismo contenido ──
+// (p. ej. un video "10 cosas que hacer en Roma" o una captura con lista).
+// Devuelve { places: [...], sources }. Con 1 solo lugar funciona igual que
+// la extracción simple.
+export async function extractMultiplePlacesFromContent({ text, imageBase64, imageMime }) {
+  const first = await extractPlaceFromContent({ text, imageBase64, imageMime })
+  const places = [first.place]
+
+  // Si el resumen sugiere que hay más lugares, pedir la lista completa.
+  const summary = first.place.extraction_summary || ''
+  const looksMultiple = /\b(\d+|varios|otros|más|multiples|múltiples|lista|guía|top|mejores|cosas|lugares)\b/i.test(summary) ||
+    /\b\d+\b/.test(text || '')
+  if (!looksMultiple) return { places, sources: first.sources }
+
+  const system =
+    'Analiza el contenido (enlace, texto o captura) y extrae TODOS los lugares turísticos INDEPENDIENTES que mencione, en orden de aparición. ' +
+    'Reglas: solo lugares con nombre concreto y verificable (nunca inventar: si no puedes acceder al contenido, lista solo lo que veas). ' +
+    'Descarta menciones genéricas ("el centro", "la catedral" sin ciudad). Cada lugar es independiente aunque estén cerca. ' +
+    'Responde ÚNICAMENTE con JSON: {"places":[{"name":"","city":"","country":"","category":"museo|iglesia|monumento|ruina_arqueologica|parque|paseo_barrio|comida|otro","lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"","reservation_required":false,"reservation_notes":"","extraction_summary":""}]} ' +
+    'Incluye SIEMPRE al menos el lugar principal; máximo 15 lugares. lat/lng con 5+ decimales.'
+
+  const parts = []
+  if (imageBase64) parts.push({ inlineData: { mimeType: imageMime || 'image/jpeg', data: imageBase64 } })
+  parts.push({ text: text || 'Extrae todos los lugares de esta captura/página.' })
+  const urlMatch = (text || '').match(/https?:\/\/[^\s]+/)
+  if (urlMatch) {
+    const pageText = await fetchPageText(urlMatch[0])
+    if (pageText) parts.push({ text: `Contenido real del enlace (${urlMatch[0]}):\n${pageText}` })
   }
+
+  try {
+    const { text: raw2 } = await callGemini(
+      [{ role: 'user', parts }],
+      { system, useSearch: false }, // sin búsqueda: las coordenadas se completan al aprobar cada lugar
+    )
+    const m2 = raw2.match(/\{[\s\S]*\}/)
+    if (!m2) return { places, sources: first.sources }
+    const parsed2 = JSON.parse(m2[0])
+    if (Array.isArray(parsed2.places) && parsed2.places.length > 1) {
+      return {
+        places: parsed2.places.slice(0, 15).map(toPlace),
+        sources: first.sources,
+      }
+    }
+  } catch { /* falla la lista: devolver el lugar simple */ }
+  return { places, sources: first.sources }
 }

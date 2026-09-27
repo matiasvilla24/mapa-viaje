@@ -12,6 +12,17 @@ export const CATEGORIES = {
 
 export const CATEGORY_KEYS = Object.keys(CATEGORIES)
 
+// Personas de la familia (etiquetas obligatorias de autoría / interés)
+export const PEOPLE = [
+  { key: 'papa', label: 'Papá', color: '#2563eb' },   // azul
+  { key: 'mama', label: 'Mamá', color: '#d9a400' },   // amarillo
+  { key: 'susi', label: 'Susi', color: '#7c3aed' },   // morado
+  { key: 'mati', label: 'Mati', color: '#dc2626' },   // rojo
+]
+export const PERSON_KEYS = PEOPLE.map((p) => p.key)
+export const personLabel = (k) => PEOPLE.find((p) => p.key === k)?.label || k
+export const personColor = (k) => PEOPLE.find((p) => p.key === k)?.color || '#64748b'
+
 // Cronograma base (flexible): días con ciudad principal y coordenadas para la ruta
 export const ITINERARY = [
   { date: '2026-12-25', city: 'Medellín',   label: '✈️ Medellín → Madrid',          lat: 6.2442,  lng: -75.5812, travel: true },
@@ -53,19 +64,39 @@ export const ROUTE_POINTS = [
 ]
 
 // Tramos de vuelos/traslados editables (claves estables = ids en la tabla flights)
+// mode: 'plane' | 'train' — los aéreos llevan enlace de rastreo de precio en Skyscanner
 export const FLIGHT_LEGS = [
-  { id: 'mde-mad-25dic', label: '✈️ Medellín → Madrid', date: '2026-12-25', icon: '✈️' },
-  { id: 'mad-26dic',     label: '🛬 Llegada a Madrid', date: '2026-12-26', icon: '🛬' },
-  { id: 'mad-par-27dic', label: '✈️ Madrid → París', date: '2026-12-27', icon: '✈️' },
-  { id: 'par-fin-31dic', label: '🎆 Fin de año en París', date: '2026-12-31', icon: '🎆' },
-  { id: 'par-mxp-01ene', label: '✈️ París → Milán', date: '2027-01-01', icon: '✈️' },
-  { id: 'mxp-vce-02ene', label: '🚆 Milán → Verona → Venecia', date: '2027-01-02', icon: '🚆' },
-  { id: 'vce-flo-03ene', label: '🚆 Venecia → Florencia', date: '2027-01-03', icon: '🚆' },
-  { id: 'flo-roma-04ene', label: '🚆 Florencia → Roma', date: '2027-01-04', icon: '🚆' },
-  { id: 'rom-nap-07ene', label: '🚆 Roma → Pompeya (ida y vuelta)', date: '2027-01-07', icon: '🚆' },
-  { id: 'rom-mad-09ene', label: '✈️ Roma → Madrid', date: '2027-01-09', icon: '✈️' },
-  { id: 'mad-mde-10ene', label: '✈️ Madrid → Medellín', date: '2027-01-10', icon: '✈️' },
+  { id: 'mde-mad-25dic', label: '✈️ Medellín → Madrid', date: '2026-12-25', icon: '✈️', mode: 'plane', from: 'MDE', to: 'MAD' },
+  { id: 'mad-26dic',     label: '🛬 Llegada a Madrid', date: '2026-12-26', icon: '🛬', mode: 'none' },
+  { id: 'mad-par-27dic', label: '✈️ Madrid → París', date: '2026-12-27', icon: '✈️', mode: 'plane', from: 'MAD', to: 'PAR' },
+  { id: 'par-fin-31dic', label: '🎆 Fin de año en París', date: '2026-12-31', icon: '🎆', mode: 'none' },
+  { id: 'par-mxp-01ene', label: '✈️ París → Milán', date: '2027-01-01', icon: '✈️', mode: 'plane', from: 'PAR', to: 'MXP' },
+  { id: 'mxp-vce-02ene', label: '🚆 Milán → Verona → Venecia', date: '2027-01-02', icon: '🚆', mode: 'train' },
+  { id: 'vce-flo-03ene', label: '🚆 Venecia → Florencia', date: '2027-01-03', icon: '🚆', mode: 'train' },
+  { id: 'flo-roma-04ene', label: '🚆 Florencia → Roma', date: '2027-01-04', icon: '🚆', mode: 'train' },
+  { id: 'rom-nap-07ene', label: '🚆 Roma → Pompeya (ida y vuelta)', date: '2027-01-07', icon: '🚆', mode: 'train' },
+  { id: 'rom-mad-09ene', label: '✈️ Roma → Madrid', date: '2027-01-09', icon: '✈️', mode: 'plane', from: 'ROM', to: 'MAD' },
+  { id: 'mad-mde-10ene', label: '✈️ Madrid → Medellín', date: '2027-01-10', icon: '✈️', mode: 'plane', from: 'MAD', to: 'MDE' },
 ]
+
+// Conector Skyscanner: enlace de búsqueda con fechas conocidas del tramo.
+// (No existe API pública gratuita; rastreamos vía enlaces directos.)
+export function skyscannerUrl(leg) {
+  if (leg.mode !== 'plane' || !leg.from || !leg.to) return null
+  const d = (leg.date || '').replaceAll('-', '')
+  return `https://www.skyscanner.com.co/transporte/vuelos/${leg.from.toLowerCase()}/${leg.to.toLowerCase()}/${d}/?adults=4&adultsv2=4&cabinclass=economy&rtn=0`
+}
+
+// Presupuesto: categorías de ítems
+export const BUDGET_CATEGORIES = {
+  tiquetes:    { label: 'Tiquetes',            icon: '✈️' },
+  alojamiento: { label: 'Alojamientos',        icon: '🏨' },
+  comidas:     { label: 'Comidas',             icon: '🍽️' },
+  entradas:    { label: 'Entradas a lugares',  icon: '🎟️' },
+  transporte:  { label: 'Transporte local',    icon: '🚇' },
+  varios:      { label: 'Gastos varios',       icon: '🛍️' },
+}
+export const BUDGET_CATEGORY_KEYS = Object.keys(BUDGET_CATEGORIES)
 
 export function fmtDate(iso) {
   if (!iso) return '—'

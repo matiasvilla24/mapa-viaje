@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CATEGORIES, CATEGORY_KEYS, DATE_OPTIONS } from '../constants'
+import { CATEGORIES, CATEGORY_KEYS, PEOPLE } from '../constants'
 
 const input = 'w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition'
 
@@ -22,6 +22,8 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     must_see: initial?.must_see || false,
     notes: initial?.notes || '',
     added_by: initial?.added_by || '',
+    added_by_tag: initial?.added_by_tag || '',
+    interest_tags: initial?.interest_tags || [],
   })
   const [picking, setPicking] = useState(false)
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
@@ -62,6 +64,8 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
   const submit = (e) => {
     e.preventDefault()
     if (!f.name.trim()) return alert('El nombre es obligatorio')
+    if (!f.added_by_tag) return alert('La etiqueta de quién agrega es obligatoria (Papá, Mamá, Susi o Mati)')
+    const person = PEOPLE.find((p) => p.key === f.added_by_tag)
     onSave({
       ...f,
       name: f.name.trim(),
@@ -69,7 +73,9 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
       country: f.country.trim() || '',
       lat: f.lat === '' ? null : Number(f.lat),
       lng: f.lng === '' ? null : Number(f.lng),
-      assigned_date: f.assigned_date || null,
+      added_by: person?.label || f.added_by,
+      added_by_tag: f.added_by_tag,
+      interest_tags: f.interest_tags,
     })
   }
 
@@ -87,16 +93,56 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
         </div>
 
         <div className="overflow-y-auto thin-scroll p-4 space-y-3">
-          {/* Nombre + quién lo agrega */}
-          <div className="grid grid-cols-3 gap-2">
-            <label className="col-span-2 block">
+          {/* Nombre + etiqueta obligatoria de quién agrega */}
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
               <span className="text-xs font-semibold text-slate-600">Nombre *</span>
               <input required value={f.name} onChange={set('name')} className={input + ' mt-0.5'} placeholder="Ej. Coliseo" />
             </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Agregado por</span>
-              <input value={f.added_by} onChange={set('added_by')} className={input + ' mt-0.5'} placeholder="Tu nombre" />
-            </label>
+            <div>
+              <span className="text-xs font-semibold text-slate-600">Agregado por *</span>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {PEOPLE.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setF((s) => ({ ...s, added_by_tag: p.key }))}
+                    className={`px-2 py-1 rounded-full text-[11px] font-bold border-2 transition ${
+                      f.added_by_tag === p.key ? 'text-white border-transparent' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                    }`}
+                    style={f.added_by_tag === p.key ? { background: p.color } : {}}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* De interés de quién (multi-select) */}
+          <div>
+            <span className="text-xs font-semibold text-slate-600">De interés de (pueden ser varias)</span>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {PEOPLE.map((p) => {
+                const on = f.interest_tags.includes(p.key)
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setF((s) => ({
+                      ...s,
+                      interest_tags: on ? s.interest_tags.filter((k) => k !== p.key) : [...s.interest_tags, p.key],
+                    }))}
+                    className={`px-2 py-1 rounded-full text-[11px] font-bold border-2 transition ${
+                      on ? 'text-white border-transparent' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                    }`}
+                    style={on ? { background: p.color } : {}}
+                  >
+                    {on ? '● ' : ''}{p.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Ciudad + país */}
@@ -193,22 +239,11 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
             )}
           </div>
 
-          {/* Día asignado + imperdible */}
-          <div className="grid grid-cols-1 gap-2">
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Día asignado (agenda)</span>
-              <select value={f.assigned_date} onChange={set('assigned_date')} className={input + ' mt-0.5'}>
-                <option value="">— Sin día asignado —</option>
-                {DATE_OPTIONS.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={f.must_see} onChange={set('must_see')} className="w-4 h-4 accent-emerald-600" />
-              <span className="text-sm font-semibold text-slate-700">⭐ Imperdible (must-see)</span>
-            </label>
-          </div>
+          {/* Imperdible (solo el usuario lo marca) */}
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={f.must_see} onChange={set('must_see')} className="w-4 h-4 accent-emerald-600" />
+            <span className="text-sm font-semibold text-slate-700">⭐ Imperdible (must-see)</span>
+          </label>
 
           {/* Notas */}
           <label className="block">

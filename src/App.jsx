@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { db, contributionsDb, configured, onPendingChange } from './supabaseClient'
 import QuickAdd from './components/QuickAdd'
-import { CATEGORIES, CATEGORY_KEYS, ITINERARY, fmtDate } from './constants'
+import { CATEGORIES, CATEGORY_KEYS, PEOPLE, ITINERARY, fmtDate } from './constants'
 import MapView from './components/MapView'
 import Agenda from './components/Agenda'
 import RouteView from './components/RouteView'
 import Flights from './components/Flights'
+import Accommodations from './components/Accommodations'
+import Budget from './components/Budget'
 import PlaceModal from './components/PlaceModal'
 import PlaceForm from './components/PlaceForm'
 
@@ -14,7 +16,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [view, setView] = useState('mapa') // mapa | agenda | ruta | vuelos
+  const [view, setView] = useState('mapa') // mapa | agenda | vuelos | alojamientos | presupuesto | ruta
+  const [personFilter, setPersonFilter] = useState('todos') // todos | papa | mama | susi | mati
   const [selected, setSelected] = useState(null)
   const [editing, setEditing] = useState(null)   // null | 'new' | place
   const [quickAdd, setQuickAdd] = useState(false)
@@ -117,9 +120,12 @@ export default function App() {
       places.filter(
         (p) =>
           (cityFilter === 'todas' || p.city === cityFilter) &&
-          (catFilter === 'todas' || p.category === catFilter),
+          (catFilter === 'todas' || p.category === catFilter) &&
+          (personFilter === 'todos' ||
+            p.added_by_tag === personFilter ||
+            (Array.isArray(p.interest_tags) && p.interest_tags.includes(personFilter))),
       ),
-    [places, cityFilter, catFilter],
+    [places, cityFilter, catFilter, personFilter],
   )
 
   return (
@@ -177,9 +183,19 @@ export default function App() {
             <option key={k} value={k}>{CATEGORIES[k].label}</option>
           ))}
         </select>
-        {(cityFilter !== 'todas' || catFilter !== 'todas') && (
+        <select
+          value={personFilter}
+          onChange={(e) => setPersonFilter(e.target.value)}
+          className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
+        >
+          <option value="todos">👪 Toda la familia</option>
+          {PEOPLE.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+        {(cityFilter !== 'todas' || catFilter !== 'todas' || personFilter !== 'todos') && (
           <button
-            onClick={() => { setCityFilter('todas'); setCatFilter('todas') }}
+            onClick={() => { setCityFilter('todas'); setCatFilter('todas'); setPersonFilter('todos') }}
             className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"
           >
             ✕ Quitar filtros
@@ -205,6 +221,10 @@ export default function App() {
           <Agenda places={filtered} onOpen={(p) => setSelected(p)} />
         ) : view === 'vuelos' ? (
           <Flights whoAmI="Matías" />
+        ) : view === 'alojamientos' ? (
+          <Accommodations />
+        ) : view === 'presupuesto' ? (
+          <Budget />
         ) : (
           <RouteView places={places} onOpenCity={focusCity} />
         )}
@@ -215,7 +235,9 @@ export default function App() {
         {[
           ['mapa', '🗺️', 'Mapa'],
           ['agenda', '📅', 'Agenda'],
-          ['vuelos', '✈️', 'Vuelos'],
+          ['vuelos', '🚄', 'Transporte'],
+          ['alojamientos', '🏨', 'Alojamientos'],
+          ['presupuesto', '$$', '$$'],
           ['ruta', '🧭', 'Ruta'],
         ].map(([key, icon, label]) => (
           <button

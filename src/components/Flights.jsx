@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FLIGHT_LEGS, fmtDate } from '../constants'
+import { FLIGHT_LEGS, fmtDate, skyscannerUrl } from '../constants'
 import { flightsDb, configured } from '../supabaseClient'
 
 const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition'
@@ -55,9 +55,9 @@ export default function Flights({ whoAmI }) {
 
   return (
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">
-      <h2 className="text-lg font-bold text-slate-900 mb-0.5">Vuelos y traslados</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-0.5">🚄 Transporte</h2>
       <p className="text-xs text-slate-500 mb-3">
-        Horas editables por todos{configured ? '' : ' · modo demo (no se guardan)'} · los cambios se sincronizan al instante
+        Vuelos, trenes y buses · horas editables por todos{configured ? '' : ' · modo demo (no se guardan)'} · sincroniza al instante
       </p>
 
       {FLIGHT_LEGS.map((leg) => {
@@ -72,12 +72,26 @@ export default function Flights({ whoAmI }) {
                 <div className="text-xs text-slate-500">{fmtDate(leg.date)}</div>
               </div>
               {!editing && (
-                <button
-                  onClick={() => startEdit(leg.id)}
-                  className="flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                >
-                  ✏️ Editar
-                </button>
+                <div className="flex flex-shrink-0 gap-1.5">
+                  {skyscannerUrl(leg) && (
+                    <a
+                      href={skyscannerUrl(leg)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition-colors"
+                      title={`Rastrear mejor precio ${leg.from} → ${leg.to} en Skyscanner`}
+                    >
+                      💰 Precio
+                    </a>
+                  )}
+                  <button
+                    onClick={() => startEdit(leg.id)}
+                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    ✏️ Editar
+                  </button>
+                </div>
               )}
             </div>
 

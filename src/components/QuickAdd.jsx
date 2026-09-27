@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
-import { extractPlaceFromContent, mergePlaceInfo } from '../aiClient'
-import { CATEGORIES, CATEGORY_KEYS, DATE_OPTIONS, fmtDate } from '../constants'
-import { db, configured } from '../supabaseClient'
+import { extractMultiplePlacesFromContent, mergePlaceInfo } from '../aiClient'
+import { CATEGORIES, CATEGORY_KEYS, PEOPLE } from '../constants'
+import { db } from '../supabaseClient'
 
 // Duplicado EXPLÍCITO: mismo nombre normalizado (sin acentos/puntuación).
 // La proximidad NO decide — lugares distintos pueden estar a 50 m (una
@@ -23,22 +23,36 @@ function findNearby(existingPlaces, candidate) {
   return existingPlaces.find((p) => p !== undefined && distM(p, candidate) < 200) || null
 }
 
+// ¿Contenidos lo bastante distintos para ofrecer MultiAdd? Dos señales:
+// lugares con ciudad distinta, o varios con nombres bien distintos.
+function looksMulti(places) {
+  if (places.length < 2) return false
+  const cities = new Set(places.map((p) => p.city).filter(Boolean))
+  if (cities.size > 1) return true
+  const names = places.map((p) => norm(p.name)).filter(Boolean)
+  return new Set(names).size === names.length
+}
+
 // Modal "Quick Add": pegar un link (YouTube, Instagram, TikTok, artículo),
-// un texto o una captura → la IA extrae el lugar → previsualizar → guardar.
+// un texto o una captura → la IA extrae lugar(es) → aprobar → guardar.
+// Si el contenido trae VARIOS lugares independientes (MultiAdd), cada uno
+// se aprueba o descarta individualmente.
 export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
   const [input, setInput] = useState('')
   const [file, setFile] = useState(null)
   const [preview, setFilePreview] = useState(null)
-  const [author, setAuthor] = useState(() => localStorage.getItem('mv_whoami') || '')
+  const [authorTag, setAuthorTag] = useState(() => localStorage.getItem('mv_whoami_tag') || '') // papa|mama|susi|mati
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
-  const [result, setResult] = useState(null)   // { place, sources }
-  const [editName, setEditName] = useState(null) // edición rápida post-extracción
-  const [duplicate, setDuplicate] = useState(null)
-  const [nearby, setNearby] = useState(null)
+  const [results, setResults] = useState(null) // { places: [{place, duplicate, nearby}], sources } | null
+  const [addedCount, setAddedCount] = useState(0)
+  const [done, setDone] = useState(false)      // MultiAdd terminado
   const [mergeNote, setMergeNote] = useState(null)
+  const [editName, setEditName] = useState(null)
+  const [current, setCurrent] = useState(0)    // índice del lugar en revisión
   const fileInputRef = useRef(null)
-  const saveAuthor = (v) => { setAuthor(v); localStorage.setItem('mv_whoami', v) }
+  const saveAuthor = (v) => { setAuthorTag(v); localStorage.setItem('mv_whoami_tag', v) }
+  const authorLabel = (k) => PEOPLE.find((p) => p.key === k)?.label || ''
 
   const pickFile = (f) => {
     if (!f) return
@@ -46,12 +60,19 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
     setFilePreview(URL.createObjectURL(f))
   }
 
+  const resetResults = () => {
+    setResults(null)
+    setMergeNote(null)
+    setEditName(null)
+    setCurrent(0)
+  }
+
   const analyze = async () => {
     setErr(null)
     const t = input.trim()
+    if (!authorTag) { setErr('Elige quién agrega este lugar (etiqueta obligatoria).'); return }
     if (!t && !file) { setErr('Pega un link, un texto o elige una captura.'); return }
     setBusy(true)
-    setResult(null)
     try {
       let imageBase64 = null
       let imageMime = null
@@ -63,12 +84,19 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
         for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
         imageBase64 = btoa(binary)
       }
-      const r = await extractPlaceFromContent({ text: t, imageBase64, imageMime })
-      if (!r.place.name) throw new Error('La IA no identificó un lugar. Prueba con más contexto (título, canal, ciudad).')
-      const dup = findDuplicate(existingPlaces, r.place)
-      setResult(r)
-      setDuplicate(dup)
-      setNearby(dup ? null : findNearby(existingPlaces, r.place))
+      const { places, sources } = await extractMultiplePlacesFromContent({ text: t, imageBase64, imageMime })
+      if (!places.length || !places[0].name) {
+        throw new Error('La IA no identificó un lugar. Prueba con más contexto (título, canal, ciudad).')
+      }
+      const items = places.map((place) => ({
+        place,
+        duplicate: findDuplicate(existingPlaces, place),
+        nearby: findDuplicate(existingPlaces, place) ? null : findNearby(existingPlaces, place),
+      }))
+      setResults({ items, sources, multi: looksMulti(places) })
+      setCurrent(0)
+      setAddedCount(0)
+      setDone(false)
     } catch (e) {
       setErr(e.message)
     } finally {
@@ -76,64 +104,71 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
     }
   }
 
-  const save = async (overrides = {}) => {
-    if (!result) return
+  // Guardar el lugar actual (fusiona si es duplicado) y pasar al siguiente
+  const approveCurrent = async () => {
+    const item = results.items[current]
+    if (!item) return
     setBusy(true)
     setErr(null)
     try {
-      const p = result.place
+      const p = item.place
       const sourceUrl = input.trim() || null
-      // extraction_summary es interno (ya se integra en notes); no es columna de la tabla
       const { extraction_summary: _summary, ...placeCols } = p
+      const saved = { ...p, editName: editName != null ? editName : p.name }
+      const nameFinal = saved.editName
 
-      // ── ¿Ya existe? → fusionar la info nueva en el pin existente ──
-      if (duplicate) {
-        const { patch, noteLine, samePlace } = await mergePlaceInfo(duplicate, p, sourceUrl)
+      let row
+      if (item.duplicate) {
+        const { patch, noteLine, samePlace } = await mergePlaceInfo(item.duplicate, p, sourceUrl)
         if (samePlace === false) {
-          // La IA determinó que son lugares distintos: crear pin nuevo
-          setDuplicate(null)
-          const row = await db.insert({
+          row = await db.insert({
             ...placeCols,
-            ...overrides,
-            notes: [
-              p.extraction_summary ? `🤖 ${p.extraction_summary}` : null,
-              p.notes,
-            ].filter(Boolean).join('\n').slice(0, 2000) || null,
+            name: nameFinal,
+            notes: [p.extraction_summary ? `🤖 ${p.extraction_summary}` : null, p.notes].filter(Boolean).join('\n').slice(0, 2000) || null,
             source_url: sourceUrl,
-            added_by: author.trim() || 'Anónimo',
+            added_by: authorLabel(authorTag),
+            added_by_tag: authorTag,
           })
-          onSaved?.(row)
-          return
+        } else {
+          const newNotes = [item.duplicate.notes, noteLine].filter(Boolean).join('\n').slice(0, 2000)
+          row = await db.update(item.duplicate.id, {
+            ...patch,
+            notes: newNotes,
+            ...(sourceUrl && !item.duplicate.source_url ? { source_url: sourceUrl } : {}),
+          })
         }
-        const newNotes = [duplicate.notes, noteLine].filter(Boolean).join('\n').slice(0, 2000)
-        const row = await db.update(duplicate.id, {
-          ...patch,
-          notes: newNotes,
-          ...(sourceUrl && !duplicate.source_url ? { source_url: sourceUrl } : {}),
-          ...(p.must_see && !duplicate.must_see ? { must_see: true } : {}),
+      } else {
+        row = await db.insert({
+          ...placeCols,
+          name: nameFinal,
+          notes: [p.extraction_summary ? `🤖 ${p.extraction_summary}` : null, p.notes].filter(Boolean).join('\n').slice(0, 2000) || null,
+          source_url: sourceUrl,
+          added_by: authorLabel(authorTag),
+          added_by_tag: authorTag,
         })
-        setMergeNote(noteLine)
-        setBusy(false)
-        setTimeout(() => onSaved?.(row), 1600)
-        return
       }
-
-      const row = await db.insert({
-        ...placeCols,
-        ...overrides,
-        notes: [
-          p.extraction_summary ? `🤖 ${p.extraction_summary}` : null,
-          p.notes,
-        ].filter(Boolean).join('\n').slice(0, 2000) || null,
-        source_url: sourceUrl,
-        added_by: author.trim() || 'Anónimo',
-      })
-      onSaved?.(row)
+      setAddedCount((c) => c + 1)
+      setEditName(null)
+      nextItem()
+      return row
     } catch (e) {
       setErr('Error al guardar: ' + e.message)
+    } finally {
       setBusy(false)
     }
   }
+
+  const nextItem = () => {
+    if (current + 1 >= results.items.length) {
+      setDone(true)
+    } else {
+      setCurrent((c) => c + 1)
+      setMergeNote(null)
+      setEditName(null)
+    }
+  }
+
+  const item = results?.items[current]
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
@@ -151,7 +186,7 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
         </div>
 
         {/* Paso 1: entrada */}
-        {!result && (
+        {!results && (
           <div className="p-4 space-y-3 overflow-y-auto thin-scroll">
             <textarea
               value={input}
@@ -184,6 +219,26 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
               )}
             </div>
 
+            {/* Etiqueta obligatoria: ¿quién agrega? */}
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">¿Quién lo agrega? *</span>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {PEOPLE.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => saveAuthor(p.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition ${
+                      authorTag === p.key ? 'text-white border-transparent' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                    }`}
+                    style={authorTag === p.key ? { background: p.color } : {}}
+                  >
+                    {authorTag === p.key ? '● ' : ''}{p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {err && <p className="text-[12px] text-red-600">{err}</p>}
 
             <button
@@ -196,49 +251,76 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
 
             <p className="text-[10px] text-slate-400 leading-snug">
               La IA busca en la web los datos reales del lugar (coordenadas, precios, horarios) y los completa por ti.
-              Si el video/post menciona varios lugares, extrae el principal.
+              Si el link o la captura trae varios lugares independientes, aparecerá la opción <b>MultiAdd</b> para aprobarlos uno por uno.
             </p>
           </div>
         )}
 
-        {/* Paso 2: previsualización editable */}
-        {result && (
+        {/* Paso 2: previsualización — un lugar a la vez */}
+        {results && item && !done && (
           <div className="p-4 space-y-2.5 overflow-y-auto thin-scroll">
-            <div className="flex items-center gap-1.5 text-[11px] text-violet-600 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
-              <span>🤖</span>
-              <span className="flex-1">{result.place.extraction_summary || 'Lugar extraído por la IA'}</span>
-              <button onClick={() => { setResult(null); setDuplicate(null); setMergeNote(null) }} className="font-bold text-violet-500 hover:text-violet-700">↺ volver</button>
-            </div>
+            {/* Encabezado MultiAdd */}
+            {results.multi && (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+                <p className="text-[13px] font-bold text-violet-800">
+                  🎯 MultiAdd: la IA encontró <b>{results.items.length} lugares</b> independientes
+                </p>
+                <p className="text-[12px] text-violet-700 mt-0.5">
+                  Aprueba o descarta cada uno individualmente. {results.items.length - current} restante{results.items.length - current !== 1 ? 's' : ''} · {addedCount} agregado{addedCount !== 1 ? 's' : ''} hasta ahora.
+                </p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {results.items.map((it, i) => (
+                    <span
+                      key={i}
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                        i < current ? 'bg-emerald-100 text-emerald-700'
+                          : i === current ? 'bg-violet-600 text-white'
+                          : 'bg-white text-slate-400 border border-slate-200'
+                      }`}
+                    >
+                      {i < current ? '✓ ' : ''}{it.place.name.slice(0, 24) || `#${i + 1}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!results.multi && (
+              <div className="flex items-center gap-1.5 text-[11px] text-violet-600 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
+                <span>🤖</span>
+                <span className="flex-1">{item.place.extraction_summary || 'Lugar extraído por la IA'}</span>
+                <button onClick={resetResults} className="font-bold text-violet-500 hover:text-violet-700">↺ volver</button>
+              </div>
+            )}
 
-            {/* Aviso de lugar ya existente */}
-            {duplicate && !mergeNote && (
+            {/* Avisos de duplicado / cercanía */}
+            {item.duplicate && !mergeNote && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
                 <p className="text-[13px] font-bold text-amber-800">
-                  ⚠️ Este lugar ya está en el mapa: <b>«{duplicate.name}»</b>
-                  <span className="font-normal text-amber-700"> ({duplicate.city}{duplicate.added_by ? ` · agregado por ${duplicate.added_by}` : ''})</span>
+                  ⚠️ Este lugar ya está en el mapa: <b>«{item.duplicate.name}»</b>
+                  <span className="font-normal text-amber-700"> ({item.duplicate.city}{item.duplicate.added_by ? ` · agregado por ${item.duplicate.added_by}` : ''})</span>
                 </p>
                 <p className="text-[12px] text-amber-700 mt-1">
-                  Al guardar, <b>no se duplica</b>: la IA incorporará la información nueva (datos curiosos, horarios, highlights) a la ficha existente.
+                  Al aprobar, <b>no se duplica</b>: la IA incorporará la información nueva a la ficha existente.
                 </p>
               </div>
             )}
-            {nearby && !mergeNote && (
+            {item.nearby && !mergeNote && (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-[12px] text-slate-600">
-                  📍 Queda a <b>{Math.round(distM(nearby, result.place))} m</b> de «{nearby.name}» — verifícalo en el mapa si crees que es el mismo sitio; si lo es, guarda igual y la IA los fusionará.
+                  📍 Queda a <b>{Math.round(distM(item.nearby, item.place))} m</b> de «{item.nearby.name}» — verifícalo en el mapa si crees que es el mismo sitio.
                 </p>
               </div>
             )}
             {mergeNote && (
               <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3">
-                <p className="text-[13px] font-bold text-emerald-800">✅ Información fusionada con «{duplicate.name}»</p>
+                <p className="text-[13px] font-bold text-emerald-800">✅ Información fusionada con «{item.duplicate.name}»</p>
                 <p className="text-[12px] text-emerald-700 mt-1">{mergeNote}</p>
               </div>
             )}
 
-            {result.sources?.length > 0 && (
+            {results.sources?.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {result.sources.slice(0, 5).map((s, i) => (
+                {results.sources.slice(0, 5).map((s, i) => (
                   <a key={i} href={s.uri} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded-full px-2 py-0.5 text-slate-600 truncate max-w-[200px]" title={s.uri}>
                     🔗 {s.title}
                   </a>
@@ -246,53 +328,81 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
               </div>
             )}
 
-            {/* Campos clave, editables antes de guardar */}
+            {/* Campos clave, editables antes de aprobar */}
             <Field label="Nombre">
-              <input value={editName ?? result.place.name} onChange={(e) => setEditName(e.target.value)} className={inputCls} />
+              <input value={editName ?? item.place.name} onChange={(e) => setEditName(e.target.value)} className={inputCls} />
             </Field>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Ciudad"><input value={result.place.city} onChange={(e) => setResult({ ...result, place: { ...result.place, city: e.target.value } })} className={inputCls} /></Field>
-              <Field label="País"><input value={result.place.country} onChange={(e) => setResult({ ...result, place: { ...result.place, country: e.target.value } })} className={inputCls} /></Field>
+              <Field label="Ciudad"><input value={item.place.city} onChange={(e) => setResults({ ...results, items: results.items.map((it, i) => i === current ? { ...it, place: { ...it.place, city: e.target.value } } : it) })} className={inputCls} /></Field>
+              <Field label="País"><input value={item.place.country} onChange={(e) => setResults({ ...results, items: results.items.map((it, i) => i === current ? { ...it, place: { ...it.place, country: e.target.value } } : it) })} className={inputCls} /></Field>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Lat">
-                <input type="number" step="any" value={result.place.lat ?? ''} onChange={(e) => setResult({ ...result, place: { ...result.place, lat: e.target.value ? Number(e.target.value) : null } })} className={inputCls} />
+                <input type="number" step="any" value={item.place.lat ?? ''} onChange={(e) => setResults({ ...results, items: results.items.map((it, i) => i === current ? { ...it, place: { ...it.place, lat: e.target.value ? Number(e.target.value) : null } } : it) })} className={inputCls} />
               </Field>
               <Field label="Lng">
-                <input type="number" step="any" value={result.place.lng ?? ''} onChange={(e) => setResult({ ...result, place: { ...result.place, lng: e.target.value ? Number(e.target.value) : null } })} className={inputCls} />
+                <input type="number" step="any" value={item.place.lng ?? ''} onChange={(e) => setResults({ ...results, items: results.items.map((it, i) => i === current ? { ...it, place: { ...it.place, lng: e.target.value ? Number(e.target.value) : null } } : it) })} className={inputCls} />
               </Field>
             </div>
             <Field label="Categoría">
-              <select value={result.place.category} onChange={(e) => setResult({ ...result, place: { ...result.place, category: e.target.value } })} className={inputCls}>
+              <select value={item.place.category} onChange={(e) => setResults({ ...results, items: results.items.map((it, i) => i === current ? { ...it, place: { ...it.place, category: e.target.value } } : it) })} className={inputCls}>
                 {CATEGORY_KEYS.map((k) => <option key={k} value={k}>{CATEGORIES[k].label}</option>)}
               </select>
             </Field>
             <Field label="Descripción">
-              <textarea value={result.place.description} onChange={(e) => setResult({ ...result, place: { ...result.place, description: e.target.value } })} rows={3} className={inputCls + ' resize-none'} />
+              <textarea value={item.place.description} onChange={(e) => setResults({ ...results, items: results.items.map((it, i) => i === current ? { ...it, place: { ...it.place, description: e.target.value } } : it) })} rows={3} className={inputCls + ' resize-none'} />
             </Field>
-            <Field label="Día asignado">
-              <select value={result.place.assigned_date || ''} onChange={(e) => setResult({ ...result, place: { ...result.place, assigned_date: e.target.value || null } })} className={inputCls}>
-                <option value="">— sin día —</option>
-                {DATE_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
-            </Field>
-            <label className="flex items-center gap-2 text-[13px] text-slate-700">
-              <input type="checkbox" checked={result.place.must_see} onChange={(e) => setResult({ ...result, place: { ...result.place, must_see: e.target.checked } })} className="w-4 h-4 accent-emerald-600" />
-              ⭐ Imperdible
+
+            {/* ⭐ Imperdible: SOLO el usuario lo marca (la IA nunca lo checkea) */}
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2">
+              <input
+                type="checkbox"
+                checked={Boolean(item.place.must_see)}
+                onChange={(e) => setResults({
+                  ...results,
+                  items: results.items.map((it, i) => (i === current ? { ...it, place: { ...it.place, must_see: e.target.checked } } : it)),
+                })}
+                className="w-4 h-4 accent-emerald-600"
+              />
+              ⭐ Imperdible <span className="text-[10px] text-slate-400">(lo decides tú — la IA nunca lo marca)</span>
             </label>
 
             {err && <p className="text-[12px] text-red-600">{err}</p>}
 
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => save()}
+                onClick={approveCurrent}
                 disabled={busy}
                 className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 disabled:opacity-40"
               >
-                {busy ? (duplicate ? '🔄 Fusionando con el lugar existente…' : 'Guardando…') : duplicate ? '🔄 Actualizar el lugar existente' : '✅ Guardar en el mapa'}
+                {busy ? (item.duplicate ? '🔄 Fusionando…' : 'Guardando…') : item.duplicate ? '🔄 Aprobar (actualizar existente)' : '✅ Aprobar y agregar'}
               </button>
-              <button onClick={() => { setResult(null); setDuplicate(null); setMergeNote(null) }} className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-50">
-                Cancelar
+              <button
+                onClick={nextItem}
+                className={`px-4 py-2.5 rounded-xl border font-semibold text-sm ${results.multi ? 'border-slate-300 text-slate-600 hover:bg-slate-50' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+              >
+                {results.multi ? `⏭ Descartar${current + 1 < results.items.length ? ' y seguir' : ''}` : 'Cancelar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MultiAdd terminado */}
+        {results && done && (
+          <div className="p-6 space-y-3 text-center">
+            <p className="text-4xl">🎉</p>
+            <h3 className="text-lg font-bold text-slate-900">MultiAdd terminado</h3>
+            <p className="text-sm text-slate-600">
+              {addedCount > 0
+                ? `Se agregaron/actualizaron ${addedCount} ${addedCount === 1 ? 'lugar' : 'lugares'}. Los descartados no se guardaron.`
+                : 'No se agregó ningún lugar (todos descartados).'}
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button onClick={resetResults} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-50">
+                ↺ Analizar otro contenido
+              </button>
+              <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500">
+                Listo
               </button>
             </div>
           </div>

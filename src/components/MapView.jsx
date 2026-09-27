@@ -9,7 +9,7 @@ const EMOJI = {
 
 function makeIcon(place, dimmed) {
   const color = CATEGORIES[place.category]?.color || CATEGORIES.otro.color
-  const emoji = place.visited ? '✅' : (EMOJI[place.category] || EMOJI.otro)
+  const emoji = place.visited ? '✅' : (place.custom_icon || EMOJI[place.category] || EMOJI.otro)
   const size = place.must_see ? 38 : 32
   return L.divIcon({
     className: '',
@@ -131,6 +131,13 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
             <div key={key} className="flex items-center gap-1.5 text-slate-600">
               <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: c.color }} />
               {c.label}
+            </div>
+          ))}
+          {/* Iconos personalizados (obeliscos, abejas…) */}
+          {[...new Set(places.map((p) => p.custom_icon).filter(Boolean))].map((icon) => (
+            <div key={icon} className="flex items-center gap-1.5 text-slate-600">
+              <span className="w-2.5 h-2.5 rounded-full inline-block bg-slate-400" />
+              {icon} Personalizado
             </div>
           ))}
         </div>

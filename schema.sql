@@ -35,6 +35,7 @@ create table public.places (
   visited boolean not null default false,
   notes text,
   added_by text,
+  custom_icon text,
   created_at timestamptz not null default now()
 );
 

@@ -140,79 +140,6 @@ export default function App() {
         <div className="bg-red-100 text-red-700 text-xs px-4 py-2">{error}</div>
       )}
 
-      {/* ── Barra superior: filtros arriba, acciones abajo a la derecha ── */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 z-10">
-        <div className="flex gap-2 overflow-x-auto thin-scroll">
-        <select
-          value={cityFilter}
-          onChange={(e) => setCityFilter(e.target.value)}
-          className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
-        >
-          {cities.map((c) => (
-            <option key={c} value={c}>{c === 'todas' ? '🌍 Ciudades' : c}</option>
-          ))}
-        </select>
-        <select
-          value={catFilter}
-          onChange={(e) => setCatFilter(e.target.value)}
-          className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
-        >
-          <option value="todas">🎨 Categorías</option>
-          {CATEGORY_KEYS.map((k) => (
-            <option key={k} value={k}>{CATEGORIES[k].label}</option>
-          ))}
-        </select>
-        <select
-          value={personFilter}
-          onChange={(e) => setPersonFilter(e.target.value)}
-          className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-emerald-500"
-        >
-          <option value="todos">👪 Familia</option>
-          {PEOPLE.map((p) => (
-            <option key={p.key} value={p.key}>{p.label}</option>
-          ))}
-        </select>
-        {(cityFilter !== 'todas' || catFilter !== 'todas' || personFilter !== 'todos') && (
-          <button
-            onClick={() => { setCityFilter('todas'); setCatFilter('todas'); setPersonFilter('todos') }}
-            className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"
-          >
-            ✕ Quitar filtros
-          </button>
-        )}
-        </div>
-
-        <div className="flex justify-end items-center gap-1.5 mt-2">
-        <button
-          onClick={() => { setAskAI(true); cancelPick() }}
-          className="flex-shrink-0 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow"
-          title="Preguntar a la IA sobre el viaje"
-          aria-label="Preguntar a la IA sobre el viaje"
-        >
-          ❓
-        </button>
-        <button
-          onClick={() => { setQuickAdd(true); cancelPick() }}
-          className={`relative flex-shrink-0 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow ${
-            jobResult ? 'bg-emerald-500 hover:bg-emerald-400 animate-bounce' : 'bg-violet-500 hover:bg-violet-400 active:bg-violet-600'
-          } text-white`}
-          title={jobResult ? 'Resultado listo — tócalo para revisar' : 'Agregar con IA'}
-          aria-label="Quick Add con IA"
-        >
-          ✨
-          {jobResult && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white" />}
-        </button>
-        <button
-          onClick={() => { setEditing('new'); cancelPick() }}
-          className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-900 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow"
-          title="Agregar lugar manualmente"
-          aria-label="Agregar lugar"
-        >
-          ➕
-        </button>
-        </div>
-      </div>
-
       {configured && pending > 0 && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-100 text-amber-800 text-[11px] font-semibold px-3 py-1 rounded-full shadow">
           ⏳ {pending} pendiente{pending !== 1 ? 's' : ''} de sincronizar
@@ -221,6 +148,82 @@ export default function App() {
 
       {/* ── Contenido ── */}
       <main className="flex-1 relative min-h-0">
+        {/* Filtros flotando sobre el mapa (sin fondo) */}
+        {view === 'mapa' && !loading && (
+          <div className="absolute top-2 inset-x-2 z-[600] flex gap-2 overflow-x-auto thin-scroll pointer-events-auto">
+            <select
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white/95 backdrop-blur shadow-md outline-none focus:border-emerald-500"
+            >
+              {cities.map((c) => (
+                <option key={c} value={c}>{c === 'todas' ? '🌍 Ciudades' : c}</option>
+              ))}
+            </select>
+            <select
+              value={catFilter}
+              onChange={(e) => setCatFilter(e.target.value)}
+              className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white/95 backdrop-blur shadow-md outline-none focus:border-emerald-500"
+            >
+              <option value="todas">🎨 Categorías</option>
+              {CATEGORY_KEYS.map((k) => (
+                <option key={k} value={k}>{CATEGORIES[k].label}</option>
+              ))}
+            </select>
+            <select
+              value={personFilter}
+              onChange={(e) => setPersonFilter(e.target.value)}
+              className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white/95 backdrop-blur shadow-md outline-none focus:border-emerald-500"
+            >
+              <option value="todos">👪 Familia</option>
+              {PEOPLE.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+            {(cityFilter !== 'todas' || catFilter !== 'todas' || personFilter !== 'todos') && (
+              <button
+                onClick={() => { setCityFilter('todas'); setCatFilter('todas'); setPersonFilter('todos') }}
+                className="flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-900/85 text-white shadow-md hover:bg-slate-800 backdrop-blur"
+              >
+                ✕ Quitar filtros
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Acciones (❓ IA · ✨ Quick Add · ➕ Nuevo) abajo a la derecha, junto a la leyenda */}
+        {view === 'mapa' && !loading && (
+          <div className="absolute bottom-3 right-3 z-[600] flex items-center gap-1.5">
+            <button
+              onClick={() => { setAskAI(true); cancelPick() }}
+              className="flex-shrink-0 bg-slate-700/95 hover:bg-slate-600 active:bg-slate-500 text-white font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg backdrop-blur"
+              title="Preguntar a la IA sobre el viaje"
+              aria-label="Preguntar a la IA sobre el viaje"
+            >
+              ❓
+            </button>
+            <button
+              onClick={() => { setQuickAdd(true); cancelPick() }}
+              className={`relative flex-shrink-0 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg backdrop-blur ${
+                jobResult ? 'bg-emerald-500 hover:bg-emerald-400 animate-bounce' : 'bg-violet-500 hover:bg-violet-400 active:bg-violet-600'
+              } text-white`}
+              title={jobResult ? 'Resultado listo — tócalo para revisar' : 'Agregar con IA'}
+              aria-label="Quick Add con IA"
+            >
+              ✨
+              {jobResult && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white" />}
+            </button>
+            <button
+              onClick={() => { setEditing('new'); cancelPick() }}
+              className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-900 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg"
+              title="Agregar lugar manualmente"
+              aria-label="Agregar lugar"
+            >
+              ➕
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="h-full flex items-center justify-center text-slate-400 text-sm">
             Cargando lugares…

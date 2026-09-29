@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { db, contributionsDb, configured, onPendingChange } from './supabaseClient'
 import { onJobChange } from './aiJob'
 import QuickAdd from './components/QuickAdd'
@@ -34,18 +34,6 @@ export default function App() {
   const [pending, setPending] = useState(0)
   useEffect(() => onPendingChange(setPending), [])
 
-  // Modo "tocar mapa": el callback vive en un ref (no en estado, porque React
-  // interpretaría una función pasada al setter como updater y la ejecutaría).
-  const pickCallbackRef = useRef(null)
-  const [pickMode, setPickMode] = useState(false)
-  const startPick = useCallback((cb) => { pickCallbackRef.current = cb; setPickMode(true) }, [])
-  const cancelPick = useCallback(() => { pickCallbackRef.current = null; setPickMode(false) }, [])
-  const handlePick = useCallback((coords) => {
-    const cb = pickCallbackRef.current
-    pickCallbackRef.current = null
-    setPickMode(false)
-    cb?.(coords)
-  }, [])
 
   const [cityFilter, setCityFilter] = useState('todas')
   const [catFilter, setCatFilter] = useState('todas')
@@ -93,7 +81,6 @@ export default function App() {
         await db.update(editing.id, values)
       }
       setEditing(null)
-      cancelPick()
     } catch (e) {
       alert('Error al guardar: ' + e.message)
     }
@@ -193,23 +180,19 @@ export default function App() {
           </div>
         )}
 
-        {/* Buscador: disponible en todas las vistas, abajo a la izquierda */}
+        {/* Acciones (🔍 búsqueda · ❓ IA · ✨ Quick Add · ➕ Nuevo) abajo a la derecha */}
         {!loading && (
-          <button
-            onClick={() => { setSearch(true); cancelPick() }}
-            className="absolute bottom-3 left-3 z-[600] flex-shrink-0 bg-white/95 hover:bg-white active:bg-slate-100 backdrop-blur text-slate-700 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg"
-            title="Buscar lugares, hoteles, vuelos, días…"
-            aria-label="Buscar en el viaje"
-          >
-            🔍
-          </button>
-        )}
-
-        {/* Acciones (❓ IA · ✨ Quick Add · ➕ Nuevo) abajo a la derecha, junto a la leyenda */}
-        {view === 'mapa' && !loading && (
           <div className="absolute bottom-3 right-3 z-[600] flex items-center gap-1.5">
             <button
-              onClick={() => { setAskAI(true); cancelPick() }}
+              onClick={() => setSearch(true)}
+              className="flex-shrink-0 bg-white/95 hover:bg-white active:bg-slate-100 backdrop-blur text-slate-700 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg"
+              title="Buscar lugares, hoteles, vuelos, días…"
+              aria-label="Buscar en el viaje"
+            >
+              🔍
+            </button>
+            <button
+              onClick={() => setAskAI(true)}
               className="flex-shrink-0 bg-slate-700/95 hover:bg-slate-600 active:bg-slate-500 text-white font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg backdrop-blur"
               title="Preguntar a la IA sobre el viaje"
               aria-label="Preguntar a la IA sobre el viaje"
@@ -217,7 +200,7 @@ export default function App() {
               ❓
             </button>
             <button
-              onClick={() => { setQuickAdd(true); cancelPick() }}
+              onClick={() => setQuickAdd(true)}
               className={`relative flex-shrink-0 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg backdrop-blur ${
                 jobResult ? 'bg-emerald-500 hover:bg-emerald-400 animate-bounce' : 'bg-violet-500 hover:bg-violet-400 active:bg-violet-600'
               } text-white`}
@@ -228,7 +211,7 @@ export default function App() {
               {jobResult && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white" />}
             </button>
             <button
-              onClick={() => { setEditing('new'); cancelPick() }}
+              onClick={() => setEditing('new')}
               className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-900 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg"
               title="Agregar lugar manualmente"
               aria-label="Agregar lugar"
@@ -247,8 +230,6 @@ export default function App() {
             places={filtered}
             selected={selected}
             onSelect={(p) => setSelected(p)}
-            pickMode={pickMode}
-            onPick={handlePick}
           />
         ) : view === 'agenda' ? (
           <Agenda places={filtered} onOpen={(p) => setSelected(p)} onOpenCity={focusCity} />
@@ -263,8 +244,6 @@ export default function App() {
             places={filtered}
             selected={selected}
             onSelect={(p) => setSelected(p)}
-            pickMode={pickMode}
-            onPick={handlePick}
           />
         )}
       </main>
@@ -321,9 +300,7 @@ export default function App() {
         <PlaceForm
           initial={editing === 'new' ? { added_by: '' } : editing}
           onSave={savePlace}
-          onCancel={() => { setEditing(null); cancelPick() }}
-          onPickCoords={startPick}
-          onCancelPick={cancelPick}
+          onCancel={() => setEditing(null)}
           existingPlaces={places}
         />
       )}

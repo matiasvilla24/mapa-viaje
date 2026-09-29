@@ -313,7 +313,6 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
     price: p.price || '',
     reservation_required: Boolean(p.reservation_required),
     reservation_notes: p.reservation_notes || '',
-    must_see: false, // siempre false desde la IA
     assigned_date: null, // itinerario liberado: la IA no asigna días
     extraction_summary: p.extraction_summary || '',
   })

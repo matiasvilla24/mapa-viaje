@@ -4,15 +4,13 @@ import { useSheetDismiss, SheetClose } from './sheetDismiss'
 
 const input = 'w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition'
 
-export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onCancelPick, existingPlaces = [] }) {
+export default function PlaceForm({ initial, onSave, onCancel, existingPlaces = [] }) {
   const editing = Boolean(initial?.id)
   const [f, setF] = useState({
     name: initial?.name || '',
     city: initial?.city || '',
     country: initial?.country || '',
     address: initial?.address || '',
-    lat: initial?.lat ?? '',
-    lng: initial?.lng ?? '',
     category: initial?.category || 'otro',
     description: initial?.description || '',
     highlights: initial?.highlights || '',
@@ -22,13 +20,11 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     price: initial?.price || '',
     assigned_date: initial?.assigned_date || '',
     assigned_time: initial?.assigned_time || '',
-    must_see: initial?.must_see || false,
     notes: initial?.notes || '',
     added_by: initial?.added_by || 'Mati',
     added_by_tag: initial?.added_by_tag || 'mati',
     interest_tags: initial?.interest_tags || [],
   })
-  const [picking, setPicking] = useState(false)
   const sheet = useSheetDismiss(onCancel)
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
@@ -42,39 +38,6 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     )
   }, [f.assigned_date, f.assigned_time, existingPlaces, initial?.id])
 
-  // Activar modo captura: el formulario se minimiza, el usuario toca el mapa y
-  // el callback rellena lat/lng y restaura el formulario.
-  const startPicking = () => {
-    if (picking) return
-    setPicking(true)
-    onPickCoords?.((coords) => {
-      setF((s) => ({ ...s, lat: coords.lat, lng: coords.lng }))
-      setPicking(false)
-    })
-  }
-  const stopPicking = () => {
-    setPicking(false)
-    onCancelPick?.()
-  }
-
-  // Minimizado mientras se capturan coordenadas
-  if (picking) {
-    return (
-      <div className="fixed inset-x-0 top-3 z-[1001] flex justify-center px-4">
-        <div className="bg-slate-900 text-white rounded-full pl-4 pr-2 py-2 shadow-2xl flex items-center gap-3 text-sm font-semibold ring-1 ring-white/20">
-          <span className="animate-pulse">👆 Toca el mapa para capturar las coordenadas</span>
-          <button
-            type="button"
-            onClick={stopPicking}
-            className="bg-white/15 hover:bg-white/25 rounded-full px-3 py-1 text-xs font-bold transition-colors"
-          >
-            Cancelar
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   const submit = (e) => {
     e.preventDefault()
     if (!f.name.trim()) return alert('El nombre es obligatorio')
@@ -86,8 +49,6 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
       city: f.city.trim(),
       country: f.country.trim() || '',
       address: f.address.trim() || null,
-      lat: f.lat === '' ? null : Number(f.lat),
-      lng: f.lng === '' ? null : Number(f.lng),
       added_by: person?.label || f.added_by,
       added_by_tag: f.added_by_tag,
       interest_tags: f.interest_tags,
@@ -241,31 +202,6 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
             )}
           </div>
 
-          {/* Coordenadas + pick en mapa */}
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-            <span className="text-xs font-semibold text-slate-600">Coordenadas</span>
-            <div className="flex gap-2 mt-1">
-              <input
-                type="number" step="any" inputMode="decimal" value={f.lat} onChange={set('lat')}
-                className={input} placeholder="lat"
-              />
-              <input
-                type="number" step="any" inputMode="decimal" value={f.lng} onChange={set('lng')}
-                className={input} placeholder="lng"
-              />
-              <button
-                type="button"
-                onClick={startPicking}
-                className="flex-shrink-0 px-3 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-700 transition-colors"
-              >
-                📍 Tocar mapa
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Si no las conoces, pulsa «Tocar mapa» y luego toca el punto exacto en el mapa de fondo.
-            </p>
-          </div>
-
           {/* Descripción */}
           <label className="block">
             <span className="text-xs font-semibold text-slate-600">Descripción</span>
@@ -300,12 +236,6 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
               <textarea value={f.reservation_notes} onChange={set('reservation_notes')} rows={2} className={input + ' resize-y'} placeholder="Dónde y cuándo reservar, costos de la reserva…" />
             )}
           </div>
-
-          {/* Imperdible (solo el usuario lo marca) */}
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={f.must_see} onChange={set('must_see')} className="w-4 h-4 accent-emerald-600" />
-            <span className="text-sm font-semibold text-slate-700">⭐ Imperdible (must-see)</span>
-          </label>
 
           {/* Notas */}
           <label className="block">

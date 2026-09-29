@@ -366,16 +366,6 @@ export default function QuickAdd({ onClose, onSaved, existingPlaces = [] }) {
               <textarea value={item.place.description} onChange={(e) => patchPlace({ description: e.target.value })} rows={3} className={inputCls + ' resize-none'} />
             </Field>
 
-            <label className="flex items-center gap-2 text-[13px] text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2">
-              <input
-                type="checkbox"
-                checked={Boolean(item.place.must_see)}
-                onChange={(e) => patchPlace({ must_see: e.target.checked })}
-                className="w-4 h-4 accent-emerald-600"
-              />
-              ⭐ Imperdible <span className="text-[10px] text-slate-400">(lo decides tú)</span>
-            </label>
-
             {err && <p className="text-[12px] text-red-600">{err}</p>}
 
             <div className="flex gap-2 pt-1">

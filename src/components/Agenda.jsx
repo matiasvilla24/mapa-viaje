@@ -162,8 +162,6 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
       <span className="flex-1 min-w-0">
         <span className="flex items-center gap-1.5">
           <span className={`font-semibold text-[15px] leading-snug ${p.visited ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{p.name}</span>
-          {p.must_see && <span title="Imperdible">⭐</span>}
-          {p.reservation_required && <span title="Requiere reserva" className="text-[11px]">🎟️</span>}
           {p.visited && <span title="Visitado" className="text-[11px]">✅</span>}
           <PersonChips tags={p.interest_tags} tag={p.added_by_tag} />
         </span>

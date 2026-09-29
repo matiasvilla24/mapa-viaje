@@ -10,7 +10,7 @@ const EMOJI = {
 function makeIcon(place, dimmed) {
   const color = CATEGORIES[place.category]?.color || CATEGORIES.otro.color
   const emoji = place.visited ? '✅' : (place.custom_icon || EMOJI[place.category] || EMOJI.otro)
-  const size = place.must_see ? 38 : 32
+  const size = 32
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -18,11 +18,11 @@ function makeIcon(place, dimmed) {
       transform:rotate(-45deg);
       background:${color};
       border:2.5px solid white;
-      box-shadow:0 2px 6px rgba(0,0,0,.4), 0 0 0 ${place.must_see ? 3 : 0}px ${color}55;
+      box-shadow:0 2px 6px rgba(0,0,0,.4);
       display:flex;align-items:center;justify-content:center;
       opacity:${dimmed ? 0.25 : (place.visited ? 0.55 : 1)};
     ">
-      <span style="transform:rotate(45deg);font-size:${place.must_see ? 17 : 15}px;line-height:1">${emoji}</span>
+      <span style="transform:rotate(45deg);font-size:15px;line-height:1">${emoji}</span>
     </div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size],
@@ -30,14 +30,10 @@ function makeIcon(place, dimmed) {
   })
 }
 
-export default function MapView({ places, selected, onSelect, pickMode, onPick }) {
+export default function MapView({ places, selected, onSelect }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const markersRef = useRef(new Map())   // id -> marker
-  const pickModeRef = useRef(pickMode)
-  pickModeRef.current = pickMode
-  const onPickRef = useRef(onPick)
-  onPickRef.current = onPick
 
   // Crear el mapa una vez
   useEffect(() => {
@@ -51,11 +47,6 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
       maxZoom: 19,
       attribution: '© OpenStreetMap',
     }).addTo(map)
-    map.on('click', (e) => {
-      if (pickModeRef.current && onPickRef.current) {
-        onPickRef.current({ lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6) })
-      }
-    })
     mapInstance.current = map
     return () => { map.remove(); mapInstance.current = null; markersRef.current = new Map() }
   }, [])
@@ -88,29 +79,6 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
       }
     })
   }, [places, selected, onSelect])
-
-  // Modo pick: cambiar cursor y mostrar aviso flotante
-  useEffect(() => {
-    const map = mapInstance.current
-    if (!map) return
-    const container = map.getContainer()
-    const apply = (on) => {
-      container.style.cursor = on ? 'crosshair' : ''
-      let el = container.querySelector('.pick-hint')
-      if (on) {
-        if (!el) {
-          el = L.DomUtil.create('div', 'pick-hint')
-          el.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:1000;background:#0f172a;color:#fff;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.4);white-space:nowrap'
-          el.textContent = '👆 Toca el mapa para capturar las coordenadas'
-          container.appendChild(el)
-        }
-      } else {
-        el?.remove()
-      }
-    }
-    apply(pickMode)
-    return () => apply(false)
-  }, [pickMode])
 
   // Enfocar el lugar seleccionado
   useEffect(() => {

@@ -44,7 +44,7 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleV
           </span>
           <div className="flex-1 min-w-0">
             <h2 className={`text-lg font-bold leading-tight ${place.visited ? 'text-slate-400 line-through decoration-2' : 'text-slate-900'}`}>
-              {place.name} {place.must_see && <span title="Imperdible">⭐</span>}
+              {place.name}
             </h2>
             <p className="text-xs text-slate-500">
               <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: c.color }} />

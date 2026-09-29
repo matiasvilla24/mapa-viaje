@@ -87,7 +87,7 @@ export default function Accommodations() {
           onClick={() => { setShowForm(!showForm); if (!showForm) { setForm(emptyForm); setEditingId(null) } }}
           className="text-xs font-bold px-3 py-1.5 rounded-lg bg-sky-500 text-white hover:bg-sky-400 transition-colors"
         >
-          {showForm && !editingId ? '✕ Cerrar' : '➕ Agregar'}
+          {showForm && !editingId ? '✕ Cerrar' : '➕'}
         </button>
       </div>
       <p className="text-xs text-slate-500 mb-3">

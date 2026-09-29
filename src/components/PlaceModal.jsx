@@ -109,6 +109,37 @@ export default function PlaceModal({ place, onClose, onEdit, onDelete, onToggleV
                   <p className="text-slate-700 leading-relaxed">{place.highlights}</p>
                 </section>
               )}
+              {place.address && (
+                <section>
+                  <h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1">📍 Dirección</h3>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-800 font-semibold leading-relaxed underline decoration-sky-400 decoration-2 underline-offset-2 hover:text-sky-700"
+                  >
+                    {place.address}
+                  </a>
+                  <div className="flex gap-1.5 mt-1.5">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-sky-100 text-sky-700 border border-sky-200 hover:bg-sky-200"
+                    >
+                      🗺️ Google Maps
+                    </a>
+                    <a
+                      href={`https://waze.com/ul?q=${encodeURIComponent(place.address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
+                    >
+                      🚗 Waze
+                    </a>
+                  </div>
+                </section>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {place.price && (
                   <section>

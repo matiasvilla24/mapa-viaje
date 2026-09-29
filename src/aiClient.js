@@ -201,10 +201,10 @@ export async function askAboutTrip(question, history = [], tripSummary = '') {
 // ── Quick Add: extraer un lugar desde un link / texto / captura / descripción ──
 export const QUICK_ADD_CATEGORIES = [
   'museo', 'iglesia', 'monumento', 'ruina_arqueologica',
-  'parque', 'comida', 'otro',
+  'parque', 'comida', 'hotel', 'otro',
 ]
 
-const CATEGORY_MENU = 'museo|iglesia|monumento|ruina_arqueologica|parque|comida|otro'
+const CATEGORY_MENU = 'museo|iglesia|monumento|ruina_arqueologica|parque|comida|hotel|otro'
 
 // ¿Es una descripción libre del usuario (sin link ni captura)?
 // Ej.: "los 13 obeliscos egipcios de Roma". La IA debe BUSCAR esos lugares.
@@ -222,11 +222,11 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
         'Usa la búsqueda de Google para coordenadas exactas, precios y horarios vigentes. ' +
         'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera.\n\n' +
         'Responde ÚNICAMENTE con un objeto JSON (sin markdown) con esta forma exacta:\n' +
-        '{"name":"","city":"","country":"","category":"' + CATEGORY_MENU + '",' +
+        '{"name":"","city":"","country":"","address":"","category":"' + CATEGORY_MENU + '",' +
         '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
         '"reservation_required":false,"reservation_notes":"",' +
         '"extraction_summary":""}\n\n' +
-        'Reglas: lat/lng con 5+ decimales. description en español, 2-4 frases. NO decidas "imperdible" ni asignes días. ' +
+        'Reglas: address con la dirección convencional completa (calle, número, ciudad, país) lista para pegar en Google Maps/Waze — no coordenadas. lat/lng con 5+ decimales. description en español, 2-4 frases. NO decidas "imperdible" ni asignes días. ' +
         'Si no hay dato confiable de precio u horario, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
         'extraction_summary: 1 frase; si la descripción pide VARIOS lugares (ej. "los 13 obeliscos de Roma"), dilo aquí y devuelve el principal.'
       : 'Analiza el contenido (un enlace, texto o captura de pantalla sobre un lugar de interés para un viaje) ' +
@@ -237,11 +237,11 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
         'NO supongas ni deduzcas el lugar — responde con "name":"" y en extraction_summary escribe que no se pudo acceder al contenido del enlace. ' +
         'Inventar un lugar plausible (ej. deducir "Coliseo" por ser un reel de Roma) es un error grave.\n\n' +
         'Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin explicación) con esta forma exacta:\n' +
-        '{"name":"","city":"","country":"","category":"' + CATEGORY_MENU + '",' +
+        '{"name":"","city":"","country":"","address":"","category":"' + CATEGORY_MENU + '",' +
         '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
         '"reservation_required":false,"reservation_notes":"",' +
         '"extraction_summary":""}\n\n' +
-        'Reglas: lat/lng numéricos con 5+ decimales del punto exacto. description en español, 2-4 frases, mención breve de por qué es interesante (si viene de un video/red social, integre ese contexto). ' +
+        'Reglas: address con la dirección convencional completa (calle, número, ciudad, país) lista para pegar en Google Maps/Waze. lat/lng numéricos con 5+ decimales del punto exacto. description en español, 2-4 frases, mención breve de por qué es interesante (si viene de un video/red social, integre ese contexto). ' +
         'NO decidas si el lugar es "imperdible": eso lo decide la familia en la app. NO asignes días del itinerario. ' +
         'opening_hours y price con lo que encuentres en la web; si no hay dato confiable, "" y anótalo en reservation_notes como "verificar antes del viaje". ' +
         'extraction_summary: 1 frase sobre qué era el recurso original; si el contenido menciona VARIOS lugares independientes, dilo aquí.'
@@ -303,6 +303,7 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
     name: p.name || '',
     city: p.city || '',
     country: p.country || '',
+    address: p.address || '',
     category: QUICK_ADD_CATEGORIES.includes(p.category) ? p.category : 'otro',
     lat: Number(p.lat) || null,
     lng: Number(p.lng) || null,

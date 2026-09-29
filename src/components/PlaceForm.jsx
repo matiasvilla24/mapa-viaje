@@ -10,6 +10,7 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
     name: initial?.name || '',
     city: initial?.city || '',
     country: initial?.country || '',
+    address: initial?.address || '',
     lat: initial?.lat ?? '',
     lng: initial?.lng ?? '',
     category: initial?.category || 'otro',
@@ -84,6 +85,7 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
       name: f.name.trim(),
       city: f.city.trim(),
       country: f.country.trim() || '',
+      address: f.address.trim() || null,
       lat: f.lat === '' ? null : Number(f.lat),
       lng: f.lng === '' ? null : Number(f.lng),
       added_by: person?.label || f.added_by,
@@ -174,6 +176,22 @@ export default function PlaceForm({ initial, onSave, onCancel, onPickCoords, onC
               <input value={f.country} onChange={set('country')} className={input + ' mt-0.5'} placeholder="Italia" />
             </label>
           </div>
+
+          {/* Dirección convencional (para Waze/Google Maps) */}
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Dirección (calle, número, ciudad)</span>
+            <input value={f.address} onChange={set('address')} className={input + ' mt-0.5'} placeholder="Via Merulana 117, Roma" />
+            {f.address.trim() && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.address)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-sky-600 hover:underline mt-1 inline-block"
+              >
+                🗺️ Probar en Google Maps
+              </a>
+            )}
+          </label>
 
           {/* Categoría */}
           <div>

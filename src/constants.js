@@ -6,6 +6,7 @@ export const CATEGORIES = {
   ruina_arqueologica:  { label: 'Ruina',    color: '#78716c' },
   parque:              { label: 'Parque',   color: '#16a34a' },
   comida:              { label: 'Comida',   color: '#db2777' },
+  hotel:               { label: 'Hotel',    color: '#0f766e' },
   otro:                { label: 'Otro',     color: '#2563eb' },
 }
 

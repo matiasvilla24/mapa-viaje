@@ -4,7 +4,7 @@ import { CATEGORIES } from '../constants'
 
 const EMOJI = {
   museo: '🏛️', iglesia: '⛪', monumento: '🗿', ruina_arqueologica: '🏚️',
-  parque: '🌳', comida: '🍽️', otro: '📍',
+  parque: '🌳', comida: '🍽️', hotel: '🏨', otro: '📍',
 }
 
 function makeIcon(place, dimmed) {

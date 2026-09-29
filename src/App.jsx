@@ -11,6 +11,7 @@ import Budget from './components/Budget'
 import AskAI from './components/AskAI'
 import PlaceModal from './components/PlaceModal'
 import PlaceForm from './components/PlaceForm'
+import Search from './components/Search'
 
 export default function App() {
   const [places, setPlaces] = useState([])
@@ -23,6 +24,7 @@ export default function App() {
   const [editing, setEditing] = useState(null)   // null | 'new' | place
   const [quickAdd, setQuickAdd] = useState(false)
   const [askAI, setAskAI] = useState(false)
+  const [search, setSearch] = useState(false)
   const [jobResult, setJobResult] = useState(false)
 
   // Resultado del Quick Add en segundo plano: badge en el botón ✨
@@ -191,6 +193,18 @@ export default function App() {
           </div>
         )}
 
+        {/* Buscador: disponible en todas las vistas, abajo a la izquierda */}
+        {!loading && (
+          <button
+            onClick={() => { setSearch(true); cancelPick() }}
+            className="absolute bottom-3 left-3 z-[600] flex-shrink-0 bg-white/95 hover:bg-white active:bg-slate-100 backdrop-blur text-slate-700 font-bold text-sm w-9 h-9 rounded-xl transition-colors shadow-lg"
+            title="Buscar lugares, hoteles, vuelos, días…"
+            aria-label="Buscar en el viaje"
+          >
+            🔍
+          </button>
+        )}
+
         {/* Acciones (❓ IA · ✨ Quick Add · ➕ Nuevo) abajo a la derecha, junto a la leyenda */}
         {view === 'mapa' && !loading && (
           <div className="absolute bottom-3 right-3 z-[600] flex items-center gap-1.5">
@@ -286,6 +300,14 @@ export default function App() {
         />
       )}
       {askAI && <AskAI onClose={() => setAskAI(false)} places={places} />}
+      {search && (
+        <Search
+          places={places}
+          onClose={() => setSearch(false)}
+          onSelectPlace={(p) => { setSearch(false); setView('mapa'); setCityFilter('todas'); setCatFilter('todas'); setPersonFilter('todos'); setSelected(p) }}
+          onGoTab={(tab) => { setSearch(false); setView(tab) }}
+        />
+      )}
       {selected && !editing && !quickAdd && (
         <PlaceModal
           place={places.find((p) => p.id === selected.id) || selected}

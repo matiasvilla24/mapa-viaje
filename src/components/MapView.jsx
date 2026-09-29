@@ -133,13 +133,6 @@ export default function MapView({ places, selected, onSelect, pickMode, onPick }
               {c.label}
             </div>
           ))}
-          {/* Iconos personalizados (obeliscos, abejas…) */}
-          {[...new Set(places.map((p) => p.custom_icon).filter(Boolean))].map((icon) => (
-            <div key={icon} className="flex items-center gap-1.5 text-slate-600">
-              <span className="w-2.5 h-2.5 rounded-full inline-block bg-slate-400" />
-              {icon} Personalizado
-            </div>
-          ))}
         </div>
       </div>
     </>

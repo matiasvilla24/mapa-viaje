@@ -486,3 +486,10 @@ export const flightsDb = {
     return () => { supabase.removeChannel(channel) }
   },
 }
+
+// Checklist de reservas compartido del viaje (tabla bookings, upsert simple + realtime)
+export const bookingsDb = makeSimpleDb('bookings', { orderBy: 'sort_order' })
+
+// Alertas de monitoreo (tabla alerts): ventas abiertas y avisos del servidor.
+// El servidor crea la fila (id generado); los clientes solo editan "done".
+export const alertsDb = makeSimpleDb('alerts')

@@ -35,6 +35,9 @@ export default defineConfig({
         runtimeCaching: [],
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         cleanupOutdatedCaches: true,
+        // Handler de web-push (alertas del monitoreo: Cenacolo / AS Roma) en
+        // public/push-sw.js, importado por el service worker generado.
+        importScripts: ['/push-sw.js'],
       },
     }),
   ],

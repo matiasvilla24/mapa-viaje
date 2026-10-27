@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { db, contributionsDb, configured, onPendingChange } from './supabaseClient'
+import { db, contributionsDb, alertsDb, configured, onPendingChange } from './supabaseClient'
 import { onJobChange } from './aiJob'
 import QuickAdd from './components/QuickAdd'
 import { CATEGORIES, CATEGORY_KEYS, PEOPLE, ITINERARY, fmtDate } from './constants'
@@ -12,6 +12,9 @@ import AskAI from './components/AskAI'
 import PlaceModal from './components/PlaceModal'
 import PlaceForm from './components/PlaceForm'
 import Search from './components/Search'
+import { usePushNotifications } from './push'
+import Reservas from './components/Reservas'
+import AlertsBanner from './components/AlertsBanner'
 
 export default function App() {
   const [places, setPlaces] = useState([])
@@ -26,9 +29,13 @@ export default function App() {
   const [askAI, setAskAI] = useState(false)
   const [search, setSearch] = useState(false)
   const [jobResult, setJobResult] = useState(false)
+  const [alerts, setAlerts] = useState([])
 
   // Resultado del Quick Add en segundo plano: badge en el botón ✨
   useEffect(() => onJobChange(({ running, result }) => setJobResult(Boolean(result) && !running)), [])
+
+  // Suscripción web-push (Cenacolo, AS Roma, etc.)
+  usePushNotifications()
 
   // Operaciones pendientes de sincronizar (hechas sin conexión)
   const [pending, setPending] = useState(0)
@@ -68,8 +75,15 @@ export default function App() {
           setSelected((sel) => (sel && sel.id === row.place_id ? { ...sel, __contribInsert: row } : sel))
         },
       })
+      // Alertas del monitoreo (ventas abiertas: Cenacolo, AS Roma, etc.)
+      try {
+        setAlerts(await alertsDb.list())
+      } catch { /* tabla puede no existir aún */ }
     })()
-    return () => { unsub(); unsubContribs() }
+    const unsubAlerts = alertsDb.subscribe((row) => {
+      setAlerts((cur) => (cur.some((a) => a.id === row.id) ? cur.map((a) => (a.id === row.id ? row : a)) : [row, ...cur]))
+    })
+    return () => { unsub(); unsubContribs(); unsubAlerts() }
   }, [])
 
   // ── CRUD ──
@@ -233,6 +247,15 @@ export default function App() {
           />
         ) : view === 'agenda' ? (
           <Agenda places={filtered} onOpen={(p) => setSelected(p)} onOpenCity={focusCity} />
+        ) : view === 'reservas' ? (
+          <Reservas
+            alerts={alerts}
+            onAlertToggle={(id, done) => {
+              const a = alerts.find((x) => x.id === id)
+              if (a) alertsDb.save({ ...a, done }).catch(() => {})
+              setAlerts((cur) => cur.map((x) => (x.id === id ? { ...x, done } : x)))
+            }}
+          />
         ) : view === 'vuelos' ? (
           <Flights whoAmI="Matías" />
         ) : view === 'alojamientos' ? (
@@ -246,13 +269,16 @@ export default function App() {
             onSelect={(p) => setSelected(p)}
           />
         )}
+
+        {/* Banner de alertas del monitoreo (sobre cualquier vista) */}
+        <AlertsBanner alerts={alerts} />
       </main>
 
       {/* ── Navegación inferior ── */}
       <nav className="flex-shrink-0 bg-white border-t border-slate-200 flex z-20 pb-[env(safe-area-inset-bottom)]">
-        {[
-          ['mapa', '🗺️'],
+        {[          ['mapa', '🗺️'],
           ['agenda', '📅'],
+          ['reservas', '🎟️'],
           ['vuelos', '🚄'],
           ['alojamientos', '🏨'],
           ['presupuesto', '💰'],
@@ -261,11 +287,13 @@ export default function App() {
             key={key}
             onClick={() => setView(key)}
             aria-label={key}
-            className={`flex-1 py-3.5 text-2xl leading-none text-center transition-colors ${
+            className={`relative flex-1 py-3.5 text-2xl leading-none text-center transition-colors ${
               view === key ? 'text-emerald-600' : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
+            }`}>
             {icon}
+            {key === 'reservas' && alerts.some((a) => a.active && !a.done) && (
+              <span className="absolute top-2 right-1/2 translate-x-4 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+            )}
           </button>
         ))}
       </nav>

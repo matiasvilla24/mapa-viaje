@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate } from '../constants'
+import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate, wiki } from '../constants'
 import { dayNotesDb, configured } from '../supabaseClient'
 
 // Vista de calendario: rejilla mensual (dic 2026 – ene 2027, navegable) donde
@@ -298,6 +298,71 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
+          </div>
+        )}
+
+        {selNote.title && !editingDate && (
+          <div className="ml-1 mb-2 bg-white rounded-xl border border-slate-200 shadow-sm p-3">
+            {/* Título del día (del repo "App Europa 2026") */}
+            <div className="font-bold text-[13px] text-slate-900 leading-snug">{wiki(selNote.title)}</div>
+
+            {/* Traslados del día (legs del itinerario importado) */}
+            {Array.isArray(selNote.legs) && selNote.legs.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {selNote.legs.map((leg, i) => {
+                  const icon = leg.mode === 'avion' ? '✈️' : leg.mode === 'tren' ? '🚆' : leg.mode === 'barco' ? '⛴️' : leg.mode === 'bus' ? '🚌' : '🚗'
+                  // dc/dt = punto y terminal de salida · ac/at = punto y terminal de llegada
+                  const from = leg.from || leg.dt || leg.dc || ''
+                  const to = leg.to || leg.at || leg.ac || ''
+                  const times = [leg.dep, leg.arr].filter(Boolean).join('–')
+                  const donde = [from, to].filter(Boolean).join(' → ')
+                  const bits = [leg.no, times, donde].filter(Boolean)
+                  return (
+                    <span key={i} className="text-[11px] font-semibold bg-sky-50 text-sky-800 rounded-full px-2 py-0.5">
+                      {icon} {bits.length ? bits.join(' · ') : leg.mode || 'tramo'}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Estadía del día (con datos de la reserva) */}
+            {selNote.stay_name && (
+              <div className="mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5">
+                🛏️ {wiki(selNote.stay_name)}
+              </div>
+            )}
+            {selNote.stay_details && (
+              <div className="mt-1 text-[11px] text-slate-600 whitespace-pre-wrap pl-1 border-l-2 border-emerald-100 ml-1">{wiki(selNote.stay_details)}</div>
+            )}
+
+            {/* Actividades en orden (generadas desde el repo) */}
+            {Array.isArray(selNote.activities) && selNote.activities.length > 0 && (
+              <ol className="mt-2 space-y-0.5">
+                {selNote.activities.map((a, i) => (
+                  <li key={i} className="text-xs text-slate-700 leading-snug flex gap-1.5">
+                    <span className="text-slate-400 font-mono flex-shrink-0">{i + 1}.</span>
+                    <span>{wiki(a)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            {/* Reservas de este día (pequeño bloque separado del checklist) */}
+            {selNote.reservas && (
+              <div className="mt-2 text-xs text-slate-600 whitespace-pre-wrap bg-amber-50 border-l-2 border-amber-400 rounded-r-lg px-2.5 py-1.5">
+                <span className="font-bold text-amber-800 block mb-0.5">🎟️ Reservas del día</span>
+                {wiki(selNote.reservas)}
+              </div>
+            )}
+
+            {/* Tips / rutas del día */}
+            {selNote.tips && (
+              <div className="mt-2 text-xs text-slate-600 whitespace-pre-wrap bg-slate-50 border-l-2 border-slate-300 rounded-r-lg px-2.5 py-1.5">
+                <span className="font-bold text-slate-700 block mb-0.5">💡 Tips</span>
+                {wiki(selNote.tips)}
+              </div>
+            )}
           </div>
         )}
 

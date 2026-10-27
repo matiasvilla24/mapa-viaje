@@ -280,21 +280,6 @@ export const SEED_PLACES = [
     added_by: 'Precarga',
   },
 
-  // ───────────────────────── VERONA ─────────────────────────
-  {
-    name: 'Arena di Verona', city: 'Verona', country: 'Italia',
-    lat: 45.4392, lng: 10.9299, category: 'ruina_arqueologica',
-    description: 'El anfiteatro romano mejor conservado del mundo (siglo I d.C.), tercer mayor tras Coliseo y Capua: 30.000 espectadores, aún activo para la ópera. Se recorre el anillo exterior y la cavea.',
-    highlights: 'Anillo exterior de 4 anillos (sobreviven 2), cavea intacta, acústica legendaria, opera festival de verano, vista desde la colina Castel San Pietro.',
-    opening_hours: 'Todos los días 8:30–19:30 (última entrada 18:30); horario reducido en días de montaje de ópera. Verificar antes del viaje.',
-    reservation_required: false,
-    reservation_notes: 'Entrada ~€12–14 (verificar); sin reserva suele bastar en enero.',
-    price: '€12–14 (aprox. — verificar)',
-    assigned_date: '2027-01-02', must_see: true,
-    notes: 'Pausa perfecta del tren Milán→Venecia. Piazza Bra al lado, con cafeterías. Casco histórico de Verona a 10 min a pie (Casa di Giulietta, Piazza delle Erbe).',
-    added_by: 'Precarga',
-  },
-
   // ───────────────────────── MILÁN ─────────────────────────
   {
     name: 'Arco della Pace', city: 'Milán', country: 'Italia',

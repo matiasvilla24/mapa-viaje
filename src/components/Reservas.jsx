@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { bookingsDb, alertsDb, configured } from '../supabaseClient'
 import { fmtDate, wiki } from '../constants'
+import { ALERT_EMOJI } from './AlertsBanner'
 
 const CAT_ICONS = { transporte: '🚄', alojamiento: '🏨', entradas: '🎟️', comidas: '🍽️', paquetes: '🧳', compras: '🛍️', otros: '📎' }
 
@@ -94,20 +95,20 @@ export default function Reservas({ alerts = [], onAlertToggle, onGoAlerts }) {
       </div>
       {error && <p className="text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-2 mt-2">⚠️ {error}</p>}
 
-      {/* ── Alertas activas: boca de la app cuando el servidor detecta que abrió una venta ── */}
+      {/* ── Alertas activas: ventas abiertas (🚨) y recordatorios de cancelación (⏰/⛔) ── */}
       {activas.length > 0 && (
-        <div className="mt-3 bg-rose-50 border-l-4 border-rose-500 rounded-lg p-3 space-y-2.5">
+        <div className={`mt-3 border-l-4 rounded-lg p-3 space-y-2.5 ${activas.some((a) => a.status === 'venta-abierta') ? 'bg-rose-50 border-rose-500' : 'bg-amber-50 border-amber-500'}`}>
           {activas.map((a) => (
             <div key={a.id} className="flex items-start gap-2">
-              <span className="animate-pulse mt-0.5">🚨</span>
+              <span className={`mt-0.5 ${a.status === 'venta-abierta' ? 'animate-pulse' : ''}`}>{ALERT_EMOJI[a.status] || '🔔'}</span>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-rose-800 leading-snug">{a.title}</div>
-                {a.body && <div className="text-xs text-rose-700 mt-0.5 whitespace-pre-wrap">{a.body}</div>}
+                <div className="font-semibold text-sm leading-snug text-slate-800">{a.title}</div>
+                {a.body && <div className="text-xs text-slate-700 mt-0.5 whitespace-pre-wrap">{a.body}</div>}
                 {a.url && (
                   <a href={a.url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg px-2.5 py-1">Ir a comprar →</a>
                 )}
               </div>
-              <button onClick={() => onAlertToggle?.(a.id, true)} className="flex-shrink-0 text-xs font-bold text-rose-600 hover:bg-rose-100 rounded-md px-2 py-1" title="Marcar alerta como atendida">✔️</button>
+              <button onClick={() => onAlertToggle?.(a.id, true)} className="flex-shrink-0 text-xs font-bold text-slate-600 hover:bg-black/10 rounded-md px-2 py-1" title="Marcar alerta como atendida">✔️</button>
             </div>
           ))}
         </div>

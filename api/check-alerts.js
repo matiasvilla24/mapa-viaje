@@ -1,28 +1,29 @@
-// Monitoreo diario de ventas para el viaje (Apuntes Europa 2026):
-// - La Última Cena (Cenacolo Vinciano, Milán) — la venta con fecha fija solo abre
-//   en los canales oficiales unas semanas antes.
-// - AS Roma vs AC Milan (Serie A, Olímpico de Roma) — disponibilidad de entradas.
-// Cron: `vercel.json` lo programa UNA vez al día a las 12:00 UTC (07:00 Bogotá).
-// Al detectar "venta abierta" inserta una alerta en Supabase (la app la muestra
-// por realtime + web-push a los dispositivos suscritos vía /api/push-subscribe).
-const webpush = require('web-push')
+// Monitoreo diario para el viaje (cron Vercel, 12:00 UTC = 07:00 Bogotá):
+// 1) Ventas abiertas: Cenacolo Vinciano (Milán) y AS Roma vs Milan (Serie A).
+// 2) Recordatorios de cancelación: para cada reserva con fecha límite
+//    (bookings.cancel_by) que siga pendiente, crea una alerta cuando faltan
+//    14 días o menos. Si el usuario ya la marcó ✔️ (done=true), se respeta;
+//    si la reserva se completa o la ventana pasa, la alerta se silencia.
+// Las alertas nuevas se envían por web-push a los dispositivos suscritos
+// (SOLO cuando hay novedades: no envía push en cada corrida).
+import webpush from 'web-push'
 
 const MONITORS = [
   {
     key: 'cenacolo',
     label: 'La Última Cena (Cenacolo Vinciano) — Milán, 2 ene',
     url: 'https://cenacolovinciano.vivaticket.it/',
-    openHints: ['biglietti', 'ticket', 'acquista', 'compra', 'scegli', 'prevendita'],
     soldOutHints: ['sold out', 'terminato', 'esaurito', 'non disponibile', 'chiuso'],
   },
   {
     key: 'asroma',
     label: 'AS Roma vs AC Milan — Serie A, Olímpico 9 ene 18:00',
     url: 'https://www.asroma.com/it/biglietti/maschile',
-    openHints: ['biglietti', 'on sale', 'acquista', 'disponibili', 'compra', 'roma-milan'],
     soldOutHints: ['sold out', 'esaurito', 'esaurita', 'non disponibile', 'ripristino'],
   },
 ]
+
+const REMINDER_DAYS = 14 // aviso desde 2 semanas antes de perder reembolso
 
 async function fetchPage(url) {
   try {
@@ -58,7 +59,6 @@ export default async function handler(_req, res) {
   }
 
   const rest = async (table, { query = '', method = 'GET', body, onConflict } = {}) => {
-  const rest = async (table, { query = '', method = 'GET', body, onConflict } = {}) => {
     let url = `${supabaseUrl}/rest/v1/${table}${query}`
     const headers = {
       apikey: supabaseKey,
@@ -68,7 +68,6 @@ export default async function handler(_req, res) {
     if (method === 'POST' && onConflict) {
       url += (query.includes('?') ? '&' : '?') + 'on_conflict=' + onConflict
       headers.prefer = 'resolution=merge-duplicates,return=minimal'
-      body = body ?? null
     }
     const r = await fetch(url, {
       method,
@@ -79,29 +78,30 @@ export default async function handler(_req, res) {
     return { ok: r.ok, status: r.status, data }
   }
 
+  const newAlerts = [] // notificaciones nuevas de esta corrida (para web-push)
   const results = []
+
+  // ── 1) Monitores de ventas abiertas ──
   for (const m of MONITORS) {
     const page = await fetchPage(m.url)
     const state = pageState(page, m)
     results.push({ key: m.key, state, http: page.status, err: page.err })
 
-    // Solo si estamos seguros de que la venta abrió y no existe ya una alerta activa
     if (state === 'venta-abierta') {
       const existing = await rest('alerts', { query: `?select=id,key,status,active&key=like.${m.key}:%&order=created_at.desc&limit=1` })
       const prev = Array.isArray(existing.data) ? existing.data[0] : null
       if (!prev || !prev.active || prev.status !== 'venta-abierta') {
-        const ins = await rest('alerts', {
-          method: 'POST',
-          body: {
-            key: m.key + ':' + Date.now(), // única por detección (la columna key es unique)
-            title: '🚨 ¡La venta abrió! ' + m.label,
-            body: 'Ya se pueden comprar los boletos. Los cupos se agotan rápido; entra desde la app.',
-            url: m.url,
-            status: 'venta-abierta',
-            active: true,
-          },
-        })
-        if (!ins.ok) results.push({ key: m.key, error: 'insert alerts falló HTTP ' + ins.status })
+        const alert = {
+          key: m.key + ':' + Date.now(), // única por detección (la columna key es unique)
+          title: '🚨 ¡La venta abrió! ' + m.label,
+          body: 'Ya se pueden comprar los boletos. Los cupos se agotan rápido; entra desde la app.',
+          url: m.url,
+          status: 'venta-abierta',
+          active: true,
+        }
+        const ins = await rest('alerts', { method: 'POST', body: alert })
+        if (ins.ok) newAlerts.push(alert)
+        else results.push({ key: m.key, error: 'insert alerts falló HTTP ' + ins.status })
       }
     }
 
@@ -119,29 +119,78 @@ export default async function handler(_req, res) {
     })
   }
 
-  // Enviar web-push a todos los dispositivos suscritos
-  const subsRes = await rest('push_subscriptions', { query: '?select=endpoint,p256dh,auth' })
-  const subs = Array.isArray(subsRes.data) ? subsRes.data : []
-  const vpub = process.env.VITE_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY
-  const vpriv = process.env.VAPID_PRIVATE_KEY
+  // ── 2) Recordatorios de cancelación (bookings.cancel_by) ──
+  const bksRes = await rest('bookings', { query: '?select=id,title,done,date,cancel_by,cancel_note,web&cancel_by=not.is.null' })
+  const bookings = Array.isArray(bksRes.data) ? bksRes.data : []
+  const remind = []
+  for (const b of bookings) {
+    const key = `bk:${b.id}:cancel:${b.cancel_by}`
+    const days = Math.round((new Date(b.cancel_by + 'T23:59:59') - Date.now()) / 86400000)
+    const existing = await rest('alerts', { query: `?select=id,done,active&key=eq.${key}&limit=1` })
+    const prev = Array.isArray(existing.data) ? existing.data[0] : null
+
+    if (!prev && !b.done && days <= REMINDER_DAYS) {
+      const title =
+        days < 0
+          ? `⛔ Ya venció la fecha de cancelación: ${b.title}`
+          : days === 0
+            ? `⏰ HOY vence la cancelación de: ${b.title}`
+            : `⏰ En ${days} día${days === 1 ? '' : 's'} vence la cancelación: ${b.title}`
+      const body = `${b.cancel_note ? b.cancel_note + '. ' : ''}Después del ${b.cancel_by} ya no hay reembolso — decide en Reservas.`
+      const alert = {
+        key,
+        title,
+        body,
+        url: b.web || '',
+        status: days < 0 ? 'vencido' : 'recordatorio',
+        active: true,
+      }
+      const ins = await rest('alerts', { method: 'POST', body: alert })
+      if (ins.ok) newAlerts.push(alert)
+      remind.push({ id: b.id, days, action: ins.ok ? 'creada' : 'error HTTP ' + ins.status })
+    } else if (prev) {
+      if (b.done || days > REMINDER_DAYS) {
+        if (prev.active) {
+          await rest('alerts', { query: `?key=eq.${key}`, method: 'PATCH', body: { active: false, updated_at: new Date().toISOString() } })
+        }
+        remind.push({ id: b.id, days, action: b.done ? 'ignorada (reserva hecha)' : 'silenciada' })
+      } else if (!prev.active && !prev.done) {
+        await rest('alerts', { query: `?key=eq.${key}`, method: 'PATCH', body: { active: true, updated_at: new Date().toISOString() } })
+        remind.push({ id: b.id, days, action: 're-activada' })
+      }
+    }
+  }
+  results.push({ key: 'recordatorios', revisadas: bookings.length, cambios: remind })
+
+  // ── 3) web-push: SOLO si hubo alertas/recordatorios nuevos ──
   let pushOk = 0
-  if (subs.length && vpub && vpriv) {
-    webpush.setVapidDetails('mailto:mati@example.com', vpub, vpriv)
-    for (const s of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify({
-            title: '🚨 Alerta del viaje',
-            body: 'Se detectó una venta abierta para el viaje. Abre la app para verla.',
-            data: { url: '/' },
-          }),
-          { TTL: 86400 },
-        )
-        pushOk++
-      } catch { /* un push que falla no detiene los demás */ }
+  let pushTotal = 0
+  if (newAlerts.length) {
+    const subsRes = await rest('push_subscriptions', { query: '?select=endpoint,p256dh,auth' })
+    const subs = Array.isArray(subsRes.data) ? subsRes.data : []
+    const vpub = process.env.VITE_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY
+    const vpriv = process.env.VAPID_PRIVATE_KEY
+    if (subs.length && vpub && vpriv) {
+      webpush.setVapidDetails('mailto:matiasvilla24@gmail.com', vpub, vpriv)
+      pushTotal = subs.length
+      for (const a of newAlerts) {
+        for (const s of subs) {
+          try {
+            await webpush.sendNotification(
+              { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+              JSON.stringify({
+                title: a.title,
+                body: a.body || 'Abre la app para verla.',
+                data: { url: '/' },
+              }),
+              { TTL: 86400 },
+            )
+            pushOk++
+          } catch { /* un push que falla no detiene los demás */ }
+        }
+      }
     }
   }
 
-  return res.status(200).json({ ok: true, results, pushSentTo: pushOk, pushTotal: subs.length })
+  return res.status(200).json({ ok: true, results, newAlerts: newAlerts.length, pushSentTo: pushOk, pushTotal })
 }

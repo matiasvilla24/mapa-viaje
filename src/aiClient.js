@@ -180,7 +180,7 @@ export async function mergePlaceInfo(existing, incoming, sourceUrl) {
 export async function askAboutTrip(question, history = [], tripSummary = '') {
   const system =
     'Eres el asistente de viaje de una familia colombiana (Papá, Mamá, Susi y Mati) que visita Europa del 25 dic 2026 al 10 ene 2027: ' +
-    'Medellín → Madrid (26 dic) → París (27–31 dic, fin de año allá) → Milán (1–2 ene) → Verona → Venecia (3 ene) → Florencia (4 ene) → Roma (5–8 ene) → Pompeya (7 ene) → Madrid (9 ene) → Medellín (10 ene).\n' +
+    'Medellín → Madrid (26 dic) → París (27–31 dic, fin de año allá) → Milán y Lago de Como (1–2 ene) → Venecia (2–4 ene) → Florencia (4–5 ene) → Roma (5–10 ene) → Madrid → Medellín (11 ene).\n' +
     (tripSummary ? `Lugares guardados en su mapa:\n${tripSummary}\n\n` : '') +
     'Responde en español, breve y práctico (máximo ~180 palabras), con datos actuales verificados mediante búsqueda. ' +
     'Pueden preguntarte por precios, horarios, cómo moverse, clima en diciembre/enero, documentación, propinas, qué empacar, etc. ' +
@@ -220,7 +220,7 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
         'Ej.: "el obelisco egipcio de Roma" → Piazza del Popolo o San Juan de Letrán según lo que pida. ' +
         'Nunca inventes: si la descripción es demasiado vaga para identificar un lugar concreto, responde con "name":"" y explica en extraction_summary qué falta por aclarar. ' +
         'Usa la búsqueda de Google para coordenadas exactas, precios y horarios vigentes. ' +
-        'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera.\n\n' +
+        'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, el Lago de Como, Venecia, Florencia y Roma, pero el lugar puede ser cualquiera.\n\n' +
         'Responde ÚNICAMENTE con un objeto JSON (sin markdown) con esta forma exacta:\n' +
         '{"name":"","city":"","country":"","address":"","category":"' + CATEGORY_MENU + '",' +
         '"lat":0.0,"lng":0.0,"description":"","highlights":"","opening_hours":"","price":"",' +
@@ -232,7 +232,7 @@ export async function extractPlaceFromContent({ text, imageBase64, imageMime }) 
       : 'Analiza el contenido (un enlace, texto o captura de pantalla sobre un lugar de interés para un viaje) ' +
         'e identifica el LUGAR TURÍSTICO principal que representa. Puede ser de YouTube, Instagram, TikTok, un blog o un artículo. ' +
         'Usa la búsqueda de Google para completar datos reales: coordenadas exactas, precios y horarios vigentes. ' +
-        'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, Verona, Venecia, Florencia, Roma y Pompeya, pero el lugar puede ser cualquiera de esos destinos.\n\n' +
+        'El viaje es dic 2026 - ene 2027 por Madrid, París, Milán, el Lago de Como, Venecia, Florencia y Roma, pero el lugar puede ser cualquiera de esos destinos.\n\n' +
         'REGLA CRÍTICA contra inventar: si solo tienes el enlace pero NO el contenido real (no venió texto, título ni imagen del post), ' +
         'NO supongas ni deduzcas el lugar — responde con "name":"" y en extraction_summary escribe que no se pudo acceder al contenido del enlace. ' +
         'Inventar un lugar plausible (ej. deducir "Coliseo" por ser un reel de Roma) es un error grave.\n\n' +

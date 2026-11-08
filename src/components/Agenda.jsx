@@ -156,9 +156,10 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
   const isTravelDay = (labelByDate[selectedDate] || '').startsWith('✈️') || (labelByDate[selectedDate] || '').startsWith('🚆')
 
   const PlaceRow = ({ p }) => {
-    // Hora de inicio si el lugar pertenece al itinerario de Roma de ese día
+    // Hora: la de la ruta de Roma o, si el lugar está fuera de ella
+    // (comidas, cafés…), la hora de visita guardada en el lugar.
     const stop = p.city === 'Roma' ? romeTimeFor(p.name) : null
-    const time = stop && stop.date === p.assigned_date ? stop.time : null
+    const time = (stop && stop.date === p.assigned_date ? stop.time : null) || p.assigned_time || null
     return (
     <button
       onClick={() => onOpen(p)}

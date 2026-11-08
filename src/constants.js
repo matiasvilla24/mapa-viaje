@@ -190,8 +190,11 @@ export const ROME_ROUTE = [
     date: '2027-01-10',
     label: 'Vía Apia y vuelo',
     color: '#2563eb',
-    times: ['09:30', '10:00', '10:45', '12:00', '13:30'],
+    // 10 ene es domingo: el mercadillo de Porta Portese abre solo ese día
+    // (6:00–14:00) y queda de camino hacia la Bocca della Verità.
+    times: ['08:00', '09:30', '10:00', '10:45', '12:00', '13:30'],
     stops: [
+      'Mercado de Porta Portese',
       'Bocca della Verità',
       'Circo Máximo',
       'Termas de Caracalla',

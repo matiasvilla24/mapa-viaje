@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate, wiki } from '../constants'
+import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate, wiki, romeOrderIndex } from '../constants'
 import { dayNotesDb, configured } from '../supabaseClient'
 
 // Vista de calendario: rejilla mensual (dic 2026 – ene 2027, navegable) donde
@@ -146,7 +146,12 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
   }
 
 
-  const selPlaces = byDate[selectedDate] || []
+  // En Roma los lugares se muestran en el orden del itinerario tentativo
+  const selPlaces = useMemo(() => {
+    const list = byDate[selectedDate] || []
+    if (cityByDate[selectedDate] !== 'Roma') return list
+    return [...list].sort((a, b) => romeOrderIndex(a.name) - romeOrderIndex(b.name))
+  }, [byDate, selectedDate, cityByDate])
   const selNote = notes[selectedDate] || {}
   const isTravelDay = (labelByDate[selectedDate] || '').startsWith('✈️') || (labelByDate[selectedDate] || '').startsWith('🚆')
 
@@ -246,6 +251,15 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
             {cityByDate[selectedDate] ? ` · ${cityByDate[selectedDate]}` : ''}
           </span>
           {isTravelDay && <span className="text-[10px] font-bold text-sky-700 bg-sky-100 rounded-full px-2 py-0.5">día de viaje</span>}
+          {cityByDate[selectedDate] === 'Roma' && (
+            <button
+              onClick={() => onOpenCity?.('Roma')}
+              className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-full px-2 py-0.5 transition-colors"
+              title="Ver la ruta de este día en el mapa"
+            >
+              🧭 ver ruta
+            </button>
+          )}
           <span className="text-[11px] font-semibold text-slate-400">{selPlaces.length ? `${selPlaces.length} lug.` : '—'}</span>
         </div>
 

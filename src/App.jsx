@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { db, contributionsDb, alertsDb, configured, onPendingChange } from './supabaseClient'
 import { onJobChange } from './aiJob'
 import QuickAdd from './components/QuickAdd'
-import { CATEGORIES, CATEGORY_KEYS, PEOPLE, ITINERARY, fmtDate } from './constants'
+import { CATEGORIES, CATEGORY_KEYS, PEOPLE, ITINERARY, fmtDate, ROME_ROUTE, routeKey } from './constants'
 import MapView from './components/MapView'
 import Agenda from './components/Agenda'
 import Flights from './components/Flights'
@@ -137,6 +137,28 @@ export default function App() {
     [places, cityFilter, catFilter, personFilter],
   )
 
+  // Ruta tentativa de Roma por día (constantes + lugares reales de la base).
+  // Solo se dibuja en el mapa cuando la ciudad elegida es Roma.
+  const romeRoutes = useMemo(() => {
+    const byKey = new Map()
+    places.forEach((p) => {
+      if (p.city === 'Roma') byKey.set(routeKey(p.name), p)
+    })
+    return ROME_ROUTE.map((day) => ({
+      ...day,
+      places: day.stops
+        .map((stop) => {
+          const k = routeKey(stop)
+          if (byKey.has(k)) return byKey.get(k)
+          for (const [pk, p] of byKey) {
+            if (pk && (pk.startsWith(k) || k.startsWith(pk))) return p
+          }
+          return null
+        })
+        .filter(Boolean),
+    }))
+  }, [places])
+
   return (
     <div className="h-full flex flex-col bg-slate-50 relative">
       {error && (
@@ -183,6 +205,15 @@ export default function App() {
                 <option key={p.key} value={p.key}>{p.label}</option>
               ))}
             </select>
+            <button
+              onClick={() => { setCityFilter((c) => (c === 'Roma' ? 'todas' : 'Roma')); setView('mapa') }}
+              className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-md backdrop-blur transition-colors ${
+                cityFilter === 'Roma' ? 'bg-emerald-600 text-white' : 'bg-white/95 text-slate-700 hover:bg-white'
+              }`}
+              title="Ver en el mapa la ruta tentativa de Roma, un color por día"
+            >
+              🧭 Ruta Roma
+            </button>
             {(cityFilter !== 'todas' || catFilter !== 'todas' || personFilter !== 'todos') && (
               <button
                 onClick={() => { setCityFilter('todas'); setCatFilter('todas'); setPersonFilter('todos') }}
@@ -244,6 +275,7 @@ export default function App() {
             places={filtered}
             selected={selected}
             onSelect={(p) => setSelected(p)}
+            routeDays={cityFilter === 'Roma' ? romeRoutes : []}
           />
         ) : view === 'agenda' ? (
           <Agenda places={filtered} onOpen={(p) => setSelected(p)} onOpenCity={focusCity} />

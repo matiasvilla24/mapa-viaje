@@ -114,6 +114,111 @@ export function wiki(s) {
     .replace(/\[\[([^\]]+)\]\]/g, '$1')
 }
 
+// ── Itinerario tentativo de Roma (orden de visita por día) ──
+// Solo fechas de Roma: el mapa dibuja una línea por día con paradas numeradas.
+// Los días van alineados con las notas del repo (6–10 ene) y respetan horarios
+// de apertura (Vaticano el viernes, Coliseo temprano, Laterano el sábado…).
+export const ROME_ROUTE = [
+  {
+    date: '2027-01-06',
+    label: 'Epifanía · San Pedro y centro',
+    color: '#e11d48',
+    stops: [
+      'Basílica de San Pedro',
+      'Tumba del Papa Inocencio VIII (doble efigie)',
+      'Museo delle Anime del Purgatorio',
+      "Castel Sant'Angelo",
+      'Piazza Navona',
+      'Antico Forno Roscioli',
+      'Chiesa di Sant\'Ignazio di Loyola',
+      'Piazza della Minerva (elefante de Bernini)',
+      'Iglesia de San Luis de los Franceses',
+      'Basilica dei Santi Ambrogio e Carlo al Corso',
+      'Fontana di Trevi',
+      "Sant'Andrea delle Fratte (ángeles de Bernini)",
+      'Piazza di Spagna (Barcaccia y Trinità dei Monti)',
+      'Palazzo Zuccari (puerta grutesca)',
+      'Ristorante Pancrazio',
+    ],
+  },
+  {
+    date: '2027-01-07',
+    label: 'Roma antigua · Coliseo y Foro',
+    color: '#d97706',
+    stops: [
+      'Basílica de San Pietro in Vincoli',
+      'Coliseo',
+      'Foro Romano y Palatino',
+      'Santa Maria in Aracoeli (escalinata del Capitolio)',
+      'Caffetteria Italia al Vittoriano',
+    ],
+  },
+  {
+    date: '2027-01-08',
+    label: 'Vaticano y Trastevere',
+    color: '#0d9488',
+    stops: [
+      'Museos Vaticanos + Capilla Sixtina',
+      'Tempietto di Bramante',
+      'Isola Tiberina',
+    ],
+  },
+  {
+    date: '2027-01-09',
+    label: 'Borghese, Popolo y partido',
+    color: '#7c3aed',
+    stops: [
+      'Galleria Borghese',
+      'Villa Borghese y mirador del Pincio',
+      'Plaza del Popolo',
+      'Museo del Ara Pacis',
+      'Palazzo Barberini',
+      'Las Abejas Barberini (guía de caza)',
+      'Basílica de Santa María la Mayor',
+      'Basilica di San Giovanni in Laterano',
+      'Scala Santa',
+      'Estadio Olímpico · AS Roma vs AC Milan',
+    ],
+  },
+  {
+    date: '2027-01-10',
+    label: 'Vía Apia y vuelo',
+    color: '#2563eb',
+    stops: [
+      'Bocca della Verità',
+      'Circo Máximo',
+      'Termas de Caracalla',
+      'Vía Apia Antigua',
+      'Catacumbas de San Calixto',
+    ],
+  },
+]
+
+// Clave tolerante para emparejar nombres de la ruta con los de la base
+// (minúsculas, sin tildes ni signos): "Basílica de San Pedro" == "basilica de san pedro".
+export function routeKey(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+// Posición de un lugar dentro del itinerario de Roma (999 si no está en la ruta)
+export function romeOrderIndex(name) {
+  const k = routeKey(name)
+  let n = 0
+  for (const day of ROME_ROUTE) {
+    for (const stop of day.stops) {
+      const sk = routeKey(stop)
+      if (k && sk && (k === sk || k.startsWith(sk) || sk.startsWith(k))) return n
+      n++
+    }
+  }
+  return 999
+}
+
 // Monitoreo de ventas que la app vigila a diario (repo "App Europa 2026")
 export const MONITORS = [
   {

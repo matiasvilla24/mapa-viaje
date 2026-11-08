@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate, wiki, romeOrderIndex } from '../constants'
+import { CATEGORIES, PEOPLE, personColor, personLabel, ITINERARY, fmtDate, wiki, romeOrderIndex, romeTimeFor } from '../constants'
 import { dayNotesDb, configured } from '../supabaseClient'
 
 // Vista de calendario: rejilla mensual (dic 2026 – ene 2027, navegable) donde
@@ -155,11 +155,20 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
   const selNote = notes[selectedDate] || {}
   const isTravelDay = (labelByDate[selectedDate] || '').startsWith('✈️') || (labelByDate[selectedDate] || '').startsWith('🚆')
 
-  const PlaceRow = ({ p }) => (
+  const PlaceRow = ({ p }) => {
+    // Hora de inicio si el lugar pertenece al itinerario de Roma de ese día
+    const stop = p.city === 'Roma' ? romeTimeFor(p.name) : null
+    const time = stop && stop.date === p.assigned_date ? stop.time : null
+    return (
     <button
       onClick={() => onOpen(p)}
       className="w-full text-left flex items-start gap-2.5 py-2 px-2 -mx-2 rounded-lg hover:bg-slate-100 active:bg-slate-200 transition-colors"
     >
+      {time && (
+        <span className="mt-0.5 w-10 flex-shrink-0 text-right font-mono text-[11px] font-bold text-emerald-700">
+          {time}
+        </span>
+      )}
       <span
         className="mt-0.5 w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-white shadow"
         style={{ background: CATEGORIES[p.category]?.color || CATEGORIES.otro.color }}
@@ -176,7 +185,8 @@ export default function Agenda({ places, onOpen, onOpenCity }) {
         </span>
       </span>
     </button>
-  )
+    )
+  }
 
   return (
     <div className="h-full overflow-y-auto thin-scroll px-4 py-3 pb-24">

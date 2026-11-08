@@ -147,13 +147,12 @@ export default function App() {
     return ROME_ROUTE.map((day) => ({
       ...day,
       places: day.stops
-        .map((stop) => {
+        .map((stop, i) => {
           const k = routeKey(stop)
-          if (byKey.has(k)) return byKey.get(k)
-          for (const [pk, p] of byKey) {
-            if (pk && (pk.startsWith(k) || k.startsWith(pk))) return p
-          }
-          return null
+          const found = byKey.has(k)
+            ? byKey.get(k)
+            : [...byKey].find(([pk]) => pk && (pk.startsWith(k) || k.startsWith(pk)))?.[1]
+          return found ? { ...found, rome_time: day.times?.[i] || null, rome_stop: i + 1 } : null
         })
         .filter(Boolean),
     }))

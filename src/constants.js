@@ -123,6 +123,7 @@ export const ROME_ROUTE = [
     date: '2027-01-06',
     label: 'Epifanía · San Pedro y centro',
     color: '#e11d48',
+    times: ['08:00', '10:00', '10:45', '11:30', '13:30', '14:00', '14:45', '15:20', '15:40', '16:10', '16:45', '17:20', '17:45', '18:00', '20:00'],
     stops: [
       'Basílica de San Pedro',
       'Tumba del Papa Inocencio VIII (doble efigie)',
@@ -145,6 +146,7 @@ export const ROME_ROUTE = [
     date: '2027-01-07',
     label: 'Roma antigua · Coliseo y Foro',
     color: '#d97706',
+    times: ['08:30', '09:30', '12:00', '14:30', '15:30'],
     stops: [
       'Basílica de San Pietro in Vincoli',
       'Coliseo',
@@ -157,6 +159,7 @@ export const ROME_ROUTE = [
     date: '2027-01-08',
     label: 'Vaticano y Trastevere',
     color: '#0d9488',
+    times: ['08:00', '13:30', '15:30'],
     stops: [
       'Museos Vaticanos + Capilla Sixtina',
       'Tempietto di Bramante',
@@ -167,7 +170,12 @@ export const ROME_ROUTE = [
     date: '2027-01-09',
     label: 'Borghese, Popolo y partido',
     color: '#7c3aed',
+    // Las basílicas del Laterano se visitan al amanecer (abren 6:30/7:00) para
+    // llegar con margen al partido confirmado de las 18:00 en el Olímpico.
+    times: ['07:00', '07:45', '09:00', '11:15', '12:15', '12:45', '14:00', '14:45', '15:45', '18:00'],
     stops: [
+      'Scala Santa',
+      'Basilica di San Giovanni in Laterano',
       'Galleria Borghese',
       'Villa Borghese y mirador del Pincio',
       'Plaza del Popolo',
@@ -175,8 +183,6 @@ export const ROME_ROUTE = [
       'Palazzo Barberini',
       'Las Abejas Barberini (guía de caza)',
       'Basílica de Santa María la Mayor',
-      'Basilica di San Giovanni in Laterano',
-      'Scala Santa',
       'Estadio Olímpico · AS Roma vs AC Milan',
     ],
   },
@@ -184,6 +190,7 @@ export const ROME_ROUTE = [
     date: '2027-01-10',
     label: 'Vía Apia y vuelo',
     color: '#2563eb',
+    times: ['09:30', '10:00', '10:45', '12:00', '13:30'],
     stops: [
       'Bocca della Verità',
       'Circo Máximo',
@@ -203,6 +210,21 @@ export function routeKey(s) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+// Hora de inicio de una parada de Roma (null si el lugar no está en la ruta)
+export function romeTimeFor(name) {
+  const k = routeKey(name)
+  if (!k) return null
+  for (const day of ROME_ROUTE) {
+    for (let i = 0; i < day.stops.length; i++) {
+      const sk = routeKey(day.stops[i])
+      if (sk && (k === sk || k.startsWith(sk) || sk.startsWith(k))) {
+        return { time: day.times?.[i] || null, date: day.date, order: i + 1 }
+      }
+    }
+  }
+  return null
 }
 
 // Posición de un lugar dentro del itinerario de Roma (999 si no está en la ruta)

@@ -122,10 +122,15 @@ export default function MapView({ places, selected, onSelect, routeDays = [] }) 
       day.places.forEach((p, i) => {
         L.marker([p.lat, p.lng], {
           icon: makeStopIcon(i + 1, day.color),
-          interactive: false,
           keyboard: false,
           zIndexOffset: 600,
-        }).addTo(group)
+        })
+          .bindTooltip(`${p.rome_time ? p.rome_time + ' · ' : ''}${i + 1}. ${p.name}`, {
+            direction: 'top',
+            offset: [0, -18],
+          })
+          .on('click', () => onSelect(p))
+          .addTo(group)
       })
     })
 
@@ -161,13 +166,18 @@ export default function MapView({ places, selected, onSelect, routeDays = [] }) 
             🧭 Ruta de Roma
           </div>
           <div className="space-y-0.5 text-slate-600">
-            {shownDays.map((d) => (
-              <div key={d.date} className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-                <span className="font-semibold text-slate-700 whitespace-nowrap">{fmtDate(d.date)}</span>
-                <span className="truncate">{d.places.length} paradas</span>
-              </div>
-            ))}
+            {shownDays.map((d) => {
+              const times = d.places.map((p) => p.rome_time).filter(Boolean)
+              return (
+                <div key={d.date} className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                  <span className="font-semibold text-slate-700 whitespace-nowrap">{fmtDate(d.date)}</span>
+                  <span className="text-slate-500 whitespace-nowrap">
+                    {times.length ? `${times[0]}–${times[times.length - 1]}` : `${d.places.length} paradas`}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
